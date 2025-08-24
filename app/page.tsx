@@ -19,6 +19,10 @@ export default function Home() {
     const address = searchParams.get('address');
     if (address) {
       handleSearch(address);
+    } else {
+      // Clear property data when no address in URL
+      setPropertyData(null);
+      setError(null);
     }
   }, [searchParams]);
 
