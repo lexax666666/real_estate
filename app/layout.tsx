@@ -16,8 +16,12 @@ export const metadata: Metadata = {
   title: "Maryland Property Search - SDAT",
   description: "Search for property information in Maryland - Department of Assessments and Taxation",
   icons: {
-    icon: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1",
+    icon: [
+      { url: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1" },
+      { url: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png", sizes: "192x192", type: "image/png" },
+    ],
     shortcut: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1",
+    apple: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png",
   },
 };
 
