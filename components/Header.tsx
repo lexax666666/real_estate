@@ -86,7 +86,7 @@ export default function Header() {
         <div className="absolute inset-0 bg-black opacity-20"></div>
         <div className="relative container mx-auto h-full flex items-center px-4">
           <div className="flex items-center gap-4">
-            <div className="bg-white p-4 rounded shadow-lg">
+            <div className="rounded shadow-lg">
               <img 
                 src="https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png" 
                 alt="Maryland SDAT" 

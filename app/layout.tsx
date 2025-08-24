@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   title: "Maryland Property Search - SDAT",
   description: "Search for property information in Maryland - Department of Assessments and Taxation",
   icons: {
-    icon: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png",
-    shortcut: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png",
+    icon: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1",
+    shortcut: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1",
   },
 };
 
