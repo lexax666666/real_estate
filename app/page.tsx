@@ -12,19 +12,24 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchHistory, setSearchHistory] = useState<any[]>([]);
+  const [isNavigatingToPrevious, setIsNavigatingToPrevious] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
     const address = searchParams.get('address');
-    if (address) {
+    if (address && !isNavigatingToPrevious) {
       handleSearch(address);
-    } else {
+    } else if (!address) {
       // Clear property data when no address in URL
       setPropertyData(null);
       setError(null);
     }
-  }, [searchParams]);
+    // Reset navigation flag
+    if (isNavigatingToPrevious) {
+      setIsNavigatingToPrevious(false);
+    }
+  }, [searchParams, isNavigatingToPrevious]);
 
   const handleSearch = async (address: string) => {
     setLoading(true);
@@ -60,8 +65,14 @@ export default function Home() {
   const handlePreviousSearch = () => {
     if (searchHistory.length > 1) {
       const previousData = searchHistory[1];
+      setIsNavigatingToPrevious(true);
       setPropertyData(previousData);
       setSearchHistory(prev => [previousData, ...prev.filter((_, i) => i !== 1)]);
+      
+      // Update URL with the previous property's address
+      if (previousData.address) {
+        router.push(`?address=${encodeURIComponent(previousData.address)}`, { scroll: false });
+      }
     }
   };
 

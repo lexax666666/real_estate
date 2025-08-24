@@ -6,42 +6,43 @@ export default function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-semibold text-lg mb-4">Real Property</h3>
+            <h3 className="font-semibold text-lg mb-4">Top Services</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="#" className="hover:underline">Property Search</Link></li>
-              <li><Link href="#" className="hover:underline">Tax Maps</Link></li>
-              <li><Link href="#" className="hover:underline">Sales Data</Link></li>
-              <li><Link href="#" className="hover:underline">Assessment Appeals</Link></li>
+              <li><Link href="https://mva.maryland.gov/vehicles" target="_blank" rel="noopener noreferrer" className="hover:underline">Vehicle Services</Link></li>
+              <li><Link href="https://dhs.maryland.gov/supplemental-nutrition-assistance-program/" target="_blank" rel="noopener noreferrer" className="hover:underline">Food Assistance/SNAP</Link></li>
+              <li><Link href="https://www.labor.maryland.gov/employment/unemployment.shtml" target="_blank" rel="noopener noreferrer" className="hover:underline">Unemployment Services</Link></li>
+              <li><Link href="https://www.marylandtaxes.gov/individual/index.php" target="_blank" rel="noopener noreferrer" className="hover:underline">Taxes</Link></li>
+              <li><Link href="https://elections.maryland.gov/voter_registration/index.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Register to Vote</Link></li>
             </ul>
           </div>
           
           <div>
-            <h3 className="font-semibold text-lg mb-4">Services</h3>
+            <h3 className="font-semibold text-lg mb-4">Government</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="#" className="hover:underline">Business Services</Link></li>
-              <li><Link href="#" className="hover:underline">Tax Credits</Link></li>
-              <li><Link href="#" className="hover:underline">Forms & Applications</Link></li>
-              <li><Link href="#" className="hover:underline">Online Filing</Link></li>
+              <li><Link href="https://governor.maryland.gov/" target="_blank" rel="noopener noreferrer" className="hover:underline">Governor Wes Moore</Link></li>
+              <li><Link href="https://governor.maryland.gov/leadership/cabinet/" target="_blank" rel="noopener noreferrer" className="hover:underline">Maryland Cabinet</Link></li>
+              <li><Link href="http://www.maryland.gov/pages/agency_directory.aspx" target="_blank" rel="noopener noreferrer" className="hover:underline">All State Agencies</Link></li>
+              <li><Link href="https://www.maryland.gov/pages/jobs.aspx" target="_blank" rel="noopener noreferrer" className="hover:underline">Maryland State Jobs</Link></li>
             </ul>
           </div>
           
           <div>
             <h3 className="font-semibold text-lg mb-4">Resources</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="#" className="hover:underline">Reports & Statistics</Link></li>
-              <li><Link href="#" className="hover:underline">Laws & Regulations</Link></li>
-              <li><Link href="#" className="hover:underline">FAQs</Link></li>
-              <li><Link href="#" className="hover:underline">Contact Us</Link></li>
+              <li><Link href="https://www.maryland.gov/pages/residents.aspx" target="_blank" rel="noopener noreferrer" className="hover:underline">Resident Resources</Link></li>
+              <li><Link href="https://www.visitmaryland.org/" target="_blank" rel="noopener noreferrer" className="hover:underline">Visit Maryland</Link></li>
+              <li><Link href="https://www.maryland.gov/pages/online_services.aspx" target="_blank" rel="noopener noreferrer" className="hover:underline">More Online Services</Link></li>
+              <li><Link href="https://dat.maryland.gov/pages/contact_us.aspx" target="_blank" rel="noopener noreferrer" className="hover:underline">Contact Us</Link></li>
             </ul>
           </div>
           
           <div>
             <h3 className="font-semibold text-lg mb-4">Connect</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="#" className="hover:underline">News & Updates</Link></li>
-              <li><Link href="#" className="hover:underline">Email Alerts</Link></li>
-              <li><Link href="#" className="hover:underline">Social Media</Link></li>
-              <li><Link href="#" className="hover:underline">Mobile Apps</Link></li>
+              <li><Link href="https://www.facebook.com/pages/Maryland-State-Department-of-Assessments-and-Taxation/218721461546884" target="_blank" rel="noopener noreferrer" className="hover:underline">Facebook</Link></li>
+              <li><Link href="https://x.com/MarylandDAT" target="_blank" rel="noopener noreferrer" className="hover:underline">Twitter (X)</Link></li>
+              <li><Link href="https://www.linkedin.com/company/mdsdat/" target="_blank" rel="noopener noreferrer" className="hover:underline">LinkedIn</Link></li>
+              <li><Link href="https://www.ola.state.md.us/fraud/ola-fraud-hotline/" target="_blank" rel="noopener noreferrer" className="hover:underline">Report Fraud</Link></li>
             </ul>
           </div>
         </div>
