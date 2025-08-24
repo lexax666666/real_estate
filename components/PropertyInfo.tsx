@@ -23,21 +23,21 @@ export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasP
   };
 
   return (
-    <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-sm">
-      <div className="border-b border-gray-200 p-4">
+    <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-md mt-8">
+      <div className="border-b border-gray-200 p-6">
         <div className="flex gap-2 mb-4">
           <button
             onClick={onNewSearch}
-            className="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 transition-colors"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
           >
-            🔍 New Search
+            New Search
           </button>
           {hasPrevious && (
             <button
               onClick={onPreviousSearch}
-              className="bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800 transition-colors"
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors text-sm font-medium"
             >
-              ← Previous
+              Previous Search
             </button>
           )}
         </div>
