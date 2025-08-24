@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   console.log('Received request to /api/property');
   try {
-    const { address } = await request.json();
+    const searchParams = request.nextUrl.searchParams;
+    const address = searchParams.get('address');
 
     if (!address) {
       return NextResponse.json(
