@@ -1,10 +1,16 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function Header() {
+  const [showNotification, setShowNotification] = useState(true);
+
   return (
     <>
       {/* Blue notification bar */}
-      <div className="bg-blue-600 text-white p-4 text-sm">
+      {showNotification && (
+        <div className="bg-blue-600 text-white p-4 text-sm">
         <div className="container mx-auto flex items-center gap-3">
           <div className="bg-white text-blue-600 p-2 rounded-full flex-shrink-0">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -16,13 +22,18 @@ export default function Header() {
             <p>In person services have moved from 301 W. Preston St. to SDAT's new location at 123 Market Place, Baltimore, MD 21202</p>
             <p>Why wait? File online: <a href="#" className="underline">taxcredits.sdat.maryland.gov</a></p>
           </div>
-          <button className="ml-auto hover:opacity-80">
+          <button 
+            onClick={() => setShowNotification(false)}
+            className="ml-auto hover:opacity-80"
+            aria-label="Close notification"
+          >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
         </div>
       </div>
+      )}
 
       {/* State bar */}
       <div className="bg-gray-100 border-b border-gray-300 px-4 py-2">
