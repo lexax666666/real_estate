@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PropertySearch from '@/components/PropertySearch';
 import PropertyInfo from '@/components/PropertyInfo';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
-export default function Home() {
+function HomeContent() {
   const [propertyData, setPropertyData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,20 +77,30 @@ export default function Home() {
   };
 
   return (
+    <>
+      {!propertyData ? (
+        <PropertySearch onSearch={handleSearch} loading={loading} error={error} />
+      ) : (
+        <PropertyInfo 
+          data={propertyData} 
+          onNewSearch={handleNewSearch}
+          onPreviousSearch={handlePreviousSearch}
+          hasPrevious={searchHistory.length > 1}
+        />
+      )}
+    </>
+  );
+}
+
+export default function Home() {
+  return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
       <main className="flex-1">
         <div className="container mx-auto p-4">
-          {!propertyData ? (
-            <PropertySearch onSearch={handleSearch} loading={loading} error={error} />
-          ) : (
-            <PropertyInfo 
-              data={propertyData} 
-              onNewSearch={handleNewSearch}
-              onPreviousSearch={handlePreviousSearch}
-              hasPrevious={searchHistory.length > 1}
-            />
-          )}
+          <Suspense fallback={<div>Loading...</div>}>
+            <HomeContent />
+          </Suspense>
         </div>
       </main>
       <Footer />
