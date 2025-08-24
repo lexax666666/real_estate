@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Property Information Search App
 
-## Getting Started
+A Next.js application that allows users to search for property information by address using the RentCast API.
 
-First, run the development server:
+## Features
 
+- Search properties by address
+- Display comprehensive property information including:
+  - Owner information
+  - Property details (year built, square footage, etc.)
+  - Location and structure information
+  - Property valuation data
+  - Transfer/sale history
+- Search history with Previous button functionality
+- Clean, professional UI matching the provided design
+
+## Setup
+
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Configure RentCast API:
+   - Your API key is already configured in `.env.local`
+   - If you need to update it, edit the `.env.local` file
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. Enter a property address in the search field (e.g., "9354 WESTERING SUN, COLUMBIA MD 21045")
+2. Click "Search Property" to fetch information
+3. View the detailed property information displayed
+4. Use "New Search" to search for another property
+5. Use "Previous" to go back to previously searched properties
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Technologies Used
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Next.js 15.5.0 with App Router
+- TypeScript
+- Tailwind CSS
+- RentCast API for property data
+- Axios for API calls
 
-## Deploy on Vercel
+## API Integration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app integrates with RentCast API v1 to fetch property data. The API provides:
+- Property attributes and characteristics
+- Owner information
+- Assessment and tax data
+- Sale history
+- Location details
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+property-search/
+├── app/
+│   ├── api/
+│   │   └── property/
+│   │       └── route.ts      # API endpoint for property search
+│   ├── globals.css           # Global styles
+│   ├── layout.tsx           # Root layout
+│   └── page.tsx             # Main page with search logic
+├── components/
+│   ├── PropertySearch.tsx   # Search form component
+│   └── PropertyInfo.tsx     # Property information display
+├── .env.local               # Environment variables (API keys)
+└── package.json
+```
