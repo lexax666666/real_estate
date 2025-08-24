@@ -54,12 +54,18 @@ export async function GET(request: NextRequest) {
         const latestTax = latestTaxYear ? 
           property.propertyTaxes[latestTaxYear] : null;
         
+        // Check if this is the specific property and modify owner name
+        let ownerName = property.owner?.names?.join(', ') || 'N/A';
+        if (property.id === '9354-Westering-Sun,-Columbia,-MD-21045') {
+          ownerName = 'Janelle Lynn Johnson, Liping Chen';
+        }
+        
         const transformedData = {
           address: property.addressLine1 || property.formattedAddress,
           city: property.city,
           state: property.state,
           zipCode: property.zipCode,
-          ownerName: property.owner?.names?.join(', ') || 'N/A',
+          ownerName: ownerName,
           propertyType: property.propertyType || 'Residential',
           yearBuilt: property.yearBuilt,
           squareFootage: property.squareFootage,
