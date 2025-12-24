@@ -1,3 +1,8 @@
+/**
+ * Property database operations
+ * Handles caching and retrieval of property data from the database
+ */
+
 import { sql } from '@vercel/postgres';
 
 export interface PropertyCacheEntry {
