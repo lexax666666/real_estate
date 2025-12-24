@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { getPropertyFromDB, savePropertyToDB, isCacheFresh } from '@/app/lib/db';
 
 export async function GET(request: NextRequest) {
   console.log('Received request to /api/property');
@@ -12,6 +13,25 @@ export async function GET(request: NextRequest) {
         { error: 'Address is required' },
         { status: 400 }
       );
+    }
+
+    // Check database cache first
+    console.log('Checking database cache for:', address);
+    const cachedProperty = await getPropertyFromDB(address);
+
+    if (cachedProperty && isCacheFresh(cachedProperty.updatedAt)) {
+      console.log('Returning cached property data');
+      return NextResponse.json({
+        ...cachedProperty.data,
+        _cached: true,
+        _cachedAt: cachedProperty.updatedAt,
+      });
+    }
+
+    if (cachedProperty) {
+      console.log('Cache exists but is stale, fetching fresh data');
+    } else {
+      console.log('No cache found, fetching from API');
     }
 
     const apiKey = process.env.RENTCAST_API_KEY;
@@ -102,7 +122,14 @@ export async function GET(request: NextRequest) {
           history: property.history,
         };
 
-        return NextResponse.json(transformedData);
+        // Save to database cache
+        console.log('Saving property data to database');
+        await savePropertyToDB(address, transformedData);
+
+        return NextResponse.json({
+          ...transformedData,
+          _cached: false,
+        });
       } else {
         return NextResponse.json(
           { error: 'Property not found' },
