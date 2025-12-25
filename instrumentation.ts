@@ -44,6 +44,7 @@ export async function register() {
         /^\/_next\//,      // Next.js static files
         /^\/favicon\.ico/, // Favicon
         /^\/robots\.txt/,  // Robots.txt
+        /_rsc=/,           // Next.js Server Components cache revalidation (query param)
       ],
     });
 
