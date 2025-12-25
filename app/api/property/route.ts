@@ -30,11 +30,18 @@ export async function GET(request: NextRequest) {
     if (cachedProperty && isCacheFresh(cachedProperty.updatedAt)) {
       console.log('Returning cached property data');
 
-      // Track cache hit
+      // Track cache hit with key response fields
       addTraceTags({
         'cache.hit': true,
         'cache.fresh': true,
         'data.source': 'database_cache',
+        'response.cached': true,
+        'property.type': cachedProperty.data.propertyType || 'unknown',
+        'property.city': cachedProperty.data.city || 'unknown',
+        'property.state': cachedProperty.data.state || 'unknown',
+        'property.owner': cachedProperty.data.ownerName || 'unknown',
+        'property.bedrooms': cachedProperty.data.bedrooms || 0,
+        'property.bathrooms': cachedProperty.data.bathrooms || 0,
       });
       incrementMetric('property.cache.hit', 1, { source: 'database' });
 
@@ -79,6 +86,19 @@ export async function GET(request: NextRequest) {
 
       // Transform the data
       const transformedData = transformRentCastResponse(property);
+
+      // Add key response fields as tags
+      addTraceTags({
+        'response.cached': false,
+        'property.type': transformedData.propertyType || 'unknown',
+        'property.city': transformedData.city || 'unknown',
+        'property.state': transformedData.state || 'unknown',
+        'property.owner': transformedData.ownerName || 'unknown',
+        'property.bedrooms': transformedData.bedrooms || 0,
+        'property.bathrooms': transformedData.bathrooms || 0,
+        'property.year_built': transformedData.yearBuilt || 0,
+        'property.square_footage': transformedData.squareFootage || 0,
+      });
 
       // Save to database cache
       console.log('Saving property data to database');
