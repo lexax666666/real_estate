@@ -11,7 +11,6 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     // Import dd-trace dynamically to avoid bundling issues
     const tracer = await import('dd-trace');
-
     tracer.default.init({
       // Service name - appears in Datadog UI
       service: process.env.DD_SERVICE || 'property-search',
@@ -34,13 +33,18 @@ export async function register() {
       // Profiling (optional - can be enabled for deep performance insights)
       profiling: process.env.DD_PROFILING_ENABLED === 'true',
 
-      // Automatic instrumentation for common libraries
-      plugins: true,
-
       // Sample rate (1.0 = 100% of traces, adjust for high-traffic apps)
       sampleRate: parseFloat(process.env.DD_TRACE_SAMPLE_RATE || '1.0'),
+    });
 
-
+    // Configure HTTP plugin to exclude static assets and internal routes
+    // This reduces noise and saves on trace volume
+    tracer.default.use('http', {
+      blocklist: [
+        /^\/_next\//,      // Next.js static files
+        /^\/favicon\.ico/, // Favicon
+        /^\/robots\.txt/,  // Robots.txt
+      ],
     });
 
     console.log('Datadog APM initialized:', {
