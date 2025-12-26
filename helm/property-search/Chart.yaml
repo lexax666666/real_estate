@@ -1,0 +1,13 @@
+apiVersion: v2
+name: property-search
+description: Property Search Application with Datadog APM Integration
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - property
+  - search
+  - nextjs
+  - datadog
+maintainers:
+  - name: Property Search Team

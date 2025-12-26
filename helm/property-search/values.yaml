@@ -1,0 +1,93 @@
+# Default values for property-search
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: property-search  # Change this to your Docker registry/repository
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  # Enable Datadog log collection
+  ad.datadoghq.com/property-search.logs: '[{"source":"nodejs","service":"property-search"}]'
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application configuration
+config:
+  # Datadog APM configuration
+  datadog:
+    service: "property-search"
+    env: "production"  # Change to dev/staging as needed
+    site: "us5.datadoghq.com"  # Your Datadog site
+    version: "1.0.0"
+    profilingEnabled: "false"
+    traceSampleRate: "1.0"
+
+  # RentCast API configuration
+  rentcast:
+    apiUrl: "https://api.rentcast.io/v1"
+
+# Secrets (these should be provided via helm install --set or separate values file)
+secrets:
+  datadogApiKey: ""  # Set via: --set secrets.datadogApiKey=your_key
+  rentcastApiKey: ""  # Set via: --set secrets.rentcastApiKey=your_key
+  # Postgres connection string (from Vercel or your database)
+  postgresUrl: ""
+
+# Health check configuration
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3

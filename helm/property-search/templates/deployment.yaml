@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "property-search.fullname" . }}
+  labels:
+    {{- include "property-search.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "property-search.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "property-search.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "property-search.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        # Datadog APM Configuration
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_SERVICE
+          value: {{ .Values.config.datadog.service | quote }}
+        - name: DD_ENV
+          value: {{ .Values.config.datadog.env | quote }}
+        - name: DD_SITE
+          value: {{ .Values.config.datadog.site | quote }}
+        - name: DD_VERSION
+          value: {{ .Values.config.datadog.version | quote }}
+        - name: DD_PROFILING_ENABLED
+          value: {{ .Values.config.datadog.profilingEnabled | quote }}
+        - name: DD_TRACE_SAMPLE_RATE
+          value: {{ .Values.config.datadog.traceSampleRate | quote }}
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "property-search.fullname" . }}-secrets
+              key: datadog-api-key
+        # Application Configuration
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXT_RUNTIME
+          value: "nodejs"
+        # RentCast API Configuration
+        - name: RENTCAST_API_URL
+          value: {{ .Values.config.rentcast.apiUrl | quote }}
+        - name: RENTCAST_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "property-search.fullname" . }}-secrets
+              key: rentcast-api-key
+        # Database Configuration
+        - name: POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "property-search.fullname" . }}-secrets
+              key: postgres-url
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

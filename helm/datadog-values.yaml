@@ -1,0 +1,79 @@
+# Datadog Agent Helm Chart Values
+# This configures the Datadog Agent to collect traces, logs, and metrics
+
+# Your Datadog API key (REQUIRED)
+# Replace with your actual key or set via: --set datadog.apiKey=your_key
+datadog:
+  apiKey: "YOUR_DATADOG_API_KEY_HERE"
+
+  # Datadog site (change based on your account)
+  site: "us5.datadoghq.com"
+
+  # Enable APM (Application Performance Monitoring / Traces)
+  apm:
+    enabled: true
+    port: 8126
+    # Enable non-local traffic (required in K8s)
+    nonLocalTraffic: true
+
+  # Enable log collection
+  logs:
+    enabled: true
+    containerCollectAll: true
+    # Enable log-trace correlation
+    containerCollectUsingFiles: true
+
+  # Enable process monitoring
+  processAgent:
+    enabled: true
+    processCollection: true
+
+  # Enable runtime metrics
+  dogstatsd:
+    nonLocalTraffic: true
+    port: 8125
+
+  # Cluster name (optional - helps identify your cluster in Datadog)
+  clusterName: "property-search-local"
+
+  # Tags to apply to all metrics/traces from this cluster
+  tags:
+    - "env:local"
+    - "service:property-search"
+
+# Deploy as DaemonSet (one agent per node)
+agents:
+  enabled: true
+
+  # Resource requests/limits for agent pods
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+  # Enable Kubernetes event collection
+  kubernetesEvents:
+    collectEvents: true
+
+# Cluster Agent (optional but recommended for large clusters)
+clusterAgent:
+  enabled: true
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+# Kube State Metrics (for Kubernetes metrics)
+kubeStateMetricsCore:
+  enabled: true
+
+# Note: After installing Datadog, verify with:
+# kubectl get pods -n datadog
+# kubectl logs -n datadog <datadog-agent-pod> -c agent
