@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: property-search-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Node.js environment
+      - DD_API_KEY=b24c97a62c871c420e6deb063d11e17f
+      - DD_SITE=us5.datadoghq.com
+      - NODE_ENV=production
+      # Datadog APM Configuration
+      # Point to the datadog-agent service
+      - DD_AGENT_HOST=dd-agent
+      - DATADOG_HOST=datadog
+
+      # Datadog service identification
+      - DD_SERVICE=property-search
+      - DD_ENV=production
+      - DD_VERSION=1.0.0
+
+      # Datadog optional features
+      - DD_PROFILING_ENABLED=false
+      - DD_TRACE_SAMPLE_RATE=1
+      - DD_LOGS_INJECTION=true
+
+      # RentCast API Configuration
+      - RENTCAST_API_KEY=a53309b1ef674a4c98559df35e9f81b0
+      - RENTCAST_API_URL=https://api.rentcast.io/v1
+
+      # PostgreSQL Configuration
+      - POSTGRES_URL=postgresql://neondb_owner:npg_jUx6KFTrbJL3@ep-proud-violet-a4e0w0ni-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+    depends_on:
+      - dd-agent
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Datadog Agent
+  dd-agent:
+    image: datadog/agent:latest
+    container_name: dd-agent
+    environment:
+      # Required: Your Datadog API key
+      - DD_API_KEY=b24c97a62c871c420e6deb063d11e17f
+
+      # Datadog site (US: datadoghq.com, EU: datadoghq.eu)
+      - DD_SITE=us5.datadoghq.com
+
+      # Enable APM (Application Performance Monitoring)
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+
+      # Enable DogStatsD for custom metrics
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+
+      # Enable container monitoring
+      - DD_CONTAINER_EXCLUDE=name:dd-agent
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+
+      # Process monitoring
+      - DD_PROCESS_AGENT_ENABLED=true
+
+      # Set hostname to match container name
+      - DD_HOSTNAME=dd-agent
+#    ports:
+#      # APM trace ingestion
+#      - "8126:8126"
+#      # DogStatsD for custom metrics
+#      - "8125:8125/udp"
+    volumes:
+      # Docker socket for container monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # System metrics
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      # Optional: Datadog agent configuration directory
+      # - ./datadog/conf.d:/etc/datadog-agent/conf.d:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
