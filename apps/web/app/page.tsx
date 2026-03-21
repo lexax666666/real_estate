@@ -37,7 +37,8 @@ function HomeContent() {
     
     try {
       const params = new URLSearchParams({ address });
-      const response = await fetch(`/api/property?${params}`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/api/property?${params}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch property data');

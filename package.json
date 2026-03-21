@@ -3,30 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:debug": "NODE_OPTIONS='--inspect' next dev",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@vercel/postgres": "^0.10.0",
-    "axios": "^1.11.0",
-    "dd-trace": "^5.81.0",
-    "lucide-react": "^0.541.0",
-    "next": "15.5.9",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "dev": "pnpm --filter @property-search/web dev & pnpm --filter @property-search/api dev",
+    "dev:web": "pnpm --filter @property-search/web dev",
+    "dev:api": "pnpm --filter @property-search/api dev",
+    "build": "pnpm --filter @property-search/api build && pnpm --filter @property-search/web build",
+    "build:web": "pnpm --filter @property-search/web build",
+    "build:api": "pnpm --filter @property-search/api build",
+    "start": "pnpm --filter @property-search/web start & pnpm --filter @property-search/api start:prod",
+    "start:web": "pnpm --filter @property-search/web start",
+    "start:api": "pnpm --filter @property-search/api start:prod",
+    "lint": "pnpm -r lint"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.0",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }

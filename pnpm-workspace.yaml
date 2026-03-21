@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+onlyBuiltDependencies:
+  - "@datadog/native-appsec"
+  - "@datadog/native-iast-taint-tracking"
+  - "@datadog/native-metrics"
+  - "@datadog/pprof"
+  - "@nestjs/core"
+  - bufferutil
+  - dd-trace
+  - sharp
+  - unrs-resolver
