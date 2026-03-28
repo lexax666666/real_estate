@@ -51,4 +51,3 @@ next-env.d.ts
 .turbo
 
 # pnpm
-pnpm-lock.yaml
