@@ -10,10 +10,10 @@
     "lint": "eslint \"{src,test}/**/*.ts\""
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-fastify": "^11.0.0",
-    "@vercel/postgres": "^0.10.0",
     "axios": "^1.11.0",
     "dd-trace": "^5.81.0",
     "reflect-metadata": "^0.2.0",

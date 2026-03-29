@@ -4,7 +4,9 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.POSTGRES_URL!, { fullResults: true });
 
 export interface PropertyCacheEntry {
   id: number;
@@ -27,7 +29,7 @@ export class PropertyDbService {
       // Normalize address for consistent lookups
       const normalizedAddress = address.trim().toLowerCase();
 
-      const result = await sql<PropertyCacheEntry>`
+      const result = await sql`
         UPDATE properties
         SET last_accessed_at = CURRENT_TIMESTAMP,
             access_count = access_count + 1
