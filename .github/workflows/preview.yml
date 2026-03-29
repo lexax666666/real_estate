@@ -1,0 +1,78 @@
+name: Preview Environments
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  FLY_REGION: iad
+  FLY_ORG: personal
+
+concurrency:
+  group: pr-${{ github.event.number }}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    environment:
+      name: pr-${{ github.event.number }}
+      url: https://property-search-web-pr-${{ github.event.number }}.fly.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Neon DB Branch ---
+      - name: Create Neon branch
+        if: github.event.action != 'closed'
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      # --- Deploy API ---
+      - name: Deploy API preview
+        uses: superfly/fly-pr-review-apps@1.5.0
+        with:
+          name: property-search-api-pr-${{ github.event.number }}
+          config: apps/api/fly.toml
+          secrets: >
+            POSTGRES_URL=${{ steps.neon.outputs.db_url_pooled }}
+            CORS_ORIGIN=https://property-search-web-pr-${{ github.event.number }}.fly.dev
+            RENTCAST_API_KEY=${{ secrets.RENTCAST_API_KEY }}
+            RENTCAST_API_URL=${{ secrets.RENTCAST_API_URL }}
+
+      # --- Deploy Web ---
+      - name: Deploy Web preview
+        uses: superfly/fly-pr-review-apps@1.5.0
+        with:
+          name: property-search-web-pr-${{ github.event.number }}
+          config: apps/web/fly.toml
+          build_args: >
+            NEXT_PUBLIC_API_URL=https://property-search-api-pr-${{ github.event.number }}.fly.dev
+
+      # --- Smoke Tests ---
+      - name: Smoke tests
+        if: github.event.action != 'closed'
+        run: |
+          sleep 30
+
+          echo "Testing API health..."
+          curl --fail --retry 5 --retry-delay 10 \
+            https://property-search-api-pr-${{ github.event.number }}.fly.dev/health
+
+          echo ""
+          echo "Testing web app..."
+          curl --fail --retry 5 --retry-delay 10 \
+            https://property-search-web-pr-${{ github.event.number }}.fly.dev
+
+      # --- Cleanup Neon branch on PR close ---
+      - name: Delete Neon branch
+        if: github.event.action == 'closed'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
