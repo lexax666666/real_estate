@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS "properties" CASCADE;
+--> statement-breakpoint
 CREATE TABLE "properties" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"rentcast_id" varchar,
