@@ -93,11 +93,11 @@ jobs:
           IMPORT_BATCH_SIZE: ${{ inputs.batch_size }}
           IMPORT_DRY_RUN: ${{ inputs.dry_run }}
 
-      # --- Cleanup Neon branch ---
-      - name: Delete Neon branch (non-production)
-        if: always() && inputs.target != 'production' && steps.neon.outcome == 'success'
-        uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: csv-import-${{ inputs.target }}
-          api_key: ${{ secrets.NEON_API_KEY }}
+      # --- Cleanup Neon branch (disabled for now to allow post-import inspection) ---
+      # - name: Delete Neon branch (non-production)
+      #   if: always() && inputs.target != 'production' && steps.neon.outcome == 'success'
+      #   uses: neondatabase/delete-branch-action@v3
+      #   with:
+      #     project_id: ${{ vars.NEON_PROJECT_ID }}
+      #     branch: csv-import-${{ inputs.target }}
+      #     api_key: ${{ secrets.NEON_API_KEY }}
