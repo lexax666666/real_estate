@@ -211,6 +211,348 @@ describe('SdatParserService', () => {
     });
   });
 
+  describe('parsePropertyPage — Montgomery County fixture', () => {
+    let montgomeryHtml: string;
+
+    beforeAll(() => {
+      montgomeryHtml = fs.readFileSync(
+        path.join(__dirname, 'fixtures', 'sdat-result-montgomery.html'),
+        'utf-8',
+      );
+    });
+
+    it('should parse single owner name (government entity)', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.ownerNames).toEqual(['MONTGOMERY CO']);
+    });
+
+    it('should parse property use as EXEMPT COMMERCIAL', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.propertyUse).toBe('EXEMPT COMMERCIAL');
+    });
+
+    it('should parse principal residence as false', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.principalResidence).toBe(false);
+    });
+
+    it('should parse mailing address', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.mailingAddress).toContain('ROCKVILLE');
+    });
+
+    it('should parse deed reference', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.deedReference).toBe('/01398/ 00017');
+    });
+
+    it('should parse account identifier', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.accountId).toBe('04-00152444');
+      expect(result.district).toBe('04');
+    });
+
+    it('should parse premises address', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.premisesAddress).toContain('MARYLAND AVE');
+      expect(result.premisesAddress).toContain('ROCKVILLE');
+    });
+
+    it('should parse legal description', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.legalDescription).toContain('OLD JAIL');
+    });
+
+    it('should parse map, grid, parcel', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.map).toBe('GR32');
+      expect(result.grid).toBe('0000');
+      expect(result.parcel).toBe('P502');
+    });
+
+    it('should parse neighborhood and subdivision', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.neighborhood).toBe('30004.16');
+      expect(result.subdivisionCode).toBe('0201');
+    });
+
+    it('should parse section, block, lot as empty', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.section).toBe('');
+      expect(result.block).toBe('');
+      expect(result.lot).toBe('');
+    });
+
+    it('should parse yearBuilt as null for government building', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.yearBuilt).toBeNull();
+    });
+
+    it('should parse above grade living area', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.aboveGradeLivingArea).toBe(135424);
+    });
+
+    it('should parse land area in square feet', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.landArea).toBe('42,966 SF');
+    });
+
+    it('should parse stories as null', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.stories).toBeNull();
+    });
+
+    it('should parse structure type as GOVERNMENT BUILDING', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.structureType).toBe('GOVERNMENT BUILDING');
+    });
+
+    it('should parse exterior as empty', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.exterior).toBe('');
+    });
+
+    it('should parse quality', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.quality).toBe('C4');
+    });
+
+    it('should parse baths as null for non-residential', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.fullBaths).toBeNull();
+      expect(result.halfBaths).toBeNull();
+    });
+
+    it('should parse garage as empty for non-residential', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.garageSpaces).toBeNull();
+      expect(result.garageType).toBe('');
+    });
+
+    it('should parse base values (high-value commercial)', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.baseValue).toEqual({
+        land: 1660200,
+        improvements: 24614900,
+        total: 26275100,
+      });
+    });
+
+    it('should parse current values', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.currentValue).toEqual({
+        land: 1826000,
+        improvements: 26136600,
+        total: 27962600,
+      });
+    });
+
+    it('should parse phase-in assessments', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.phaseInAssessments).toHaveLength(2);
+      expect(result.phaseInAssessments[0]).toEqual({
+        date: '07/01/2025',
+        land: 0,
+        improvements: 0,
+        total: 27400100,
+      });
+      expect(result.phaseInAssessments[1]).toEqual({
+        date: '07/01/2026',
+        land: 0,
+        improvements: 0,
+        total: 27962600,
+      });
+    });
+
+    it('should parse empty transfer history', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.transfers).toHaveLength(0);
+    });
+
+    it('should parse homestead as No Application', () => {
+      const result = parser.parsePropertyPage(montgomeryHtml);
+      expect(result.homesteadStatus).toBe('No Application');
+      expect(result.homesteadApplicationDate).toBe('');
+    });
+  });
+
+  describe('parsePropertyPage — Anne Arundel County fixture', () => {
+    let anneArundelHtml: string;
+
+    beforeAll(() => {
+      anneArundelHtml = fs.readFileSync(
+        path.join(__dirname, 'fixtures', 'sdat-result-anne-arundel.html'),
+        'utf-8',
+      );
+    });
+
+    it('should parse single owner name (institution)', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.ownerNames).toEqual(['ANNE ARUNDEL COMMUNITY COLLEGE']);
+    });
+
+    it('should parse property use as EXEMPT COMMERCIAL', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.propertyUse).toBe('EXEMPT COMMERCIAL');
+    });
+
+    it('should parse principal residence as false', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.principalResidence).toBe(false);
+    });
+
+    it('should parse mailing address', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.mailingAddress).toContain('COLLEGE');
+      expect(result.mailingAddress).toContain('ARNOLD');
+    });
+
+    it('should parse deed reference', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.deedReference).toBe('/01856/ 00471');
+    });
+
+    it('should parse account identifier', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.accountId).toBe('03-90039170');
+      expect(result.district).toBe('03');
+    });
+
+    it('should parse premises address', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.premisesAddress).toContain('COLLEGE PKWY');
+      expect(result.premisesAddress).toContain('ARNOLD');
+    });
+
+    it('should parse legal description', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.legalDescription).toContain('169.00ACS');
+      expect(result.legalDescription).toContain('RUBERT MANOR');
+    });
+
+    it('should parse map, grid, parcel', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.map).toBe('0032');
+      expect(result.grid).toBe('0023');
+      expect(result.parcel).toBe('0371');
+    });
+
+    it('should parse neighborhood and subdivision', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.neighborhood).toBe('13000.02');
+      expect(result.subdivisionCode).toBe('000');
+    });
+
+    it('should parse section, block, lot', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.section).toBe('A');
+      expect(result.block).toBe('');
+      expect(result.lot).toBe('');
+    });
+
+    it('should parse year built', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.yearBuilt).toBe(2021);
+    });
+
+    it('should parse above grade living area', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.aboveGradeLivingArea).toBe(301324);
+    });
+
+    it('should parse land area in acres', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.landArea).toBe('169.0000 AC');
+    });
+
+    it('should parse stories as null', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.stories).toBeNull();
+    });
+
+    it('should parse structure type as MULTI-PURPOSE SCHOOL BUILDING', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.structureType).toBe('MULTI-PURPOSE SCHOOL BUILDING');
+    });
+
+    it('should parse exterior as BRICK', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.exterior).toBe('BRICK');
+    });
+
+    it('should parse quality', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.quality).toBe('C4');
+    });
+
+    it('should parse baths as null for non-residential', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.fullBaths).toBeNull();
+      expect(result.halfBaths).toBeNull();
+    });
+
+    it('should parse garage as empty for non-residential', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.garageSpaces).toBeNull();
+      expect(result.garageType).toBe('');
+    });
+
+    it('should parse base values (high-value institutional)', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.baseValue).toEqual({
+        land: 22873700,
+        improvements: 85520500,
+        total: 108394200,
+      });
+    });
+
+    it('should parse current values', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.currentValue).toEqual({
+        land: 22873700,
+        improvements: 99165500,
+        total: 122039200,
+      });
+    });
+
+    it('should parse phase-in assessments', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.phaseInAssessments).toHaveLength(2);
+      expect(result.phaseInAssessments[0]).toEqual({
+        date: '07/01/2025',
+        land: 0,
+        improvements: 0,
+        total: 112942533,
+      });
+      expect(result.phaseInAssessments[1]).toEqual({
+        date: '07/01/2026',
+        land: 0,
+        improvements: 0,
+        total: 117490867,
+      });
+    });
+
+    it('should parse transfer with empty seller and zero price', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.transfers).toHaveLength(1);
+      expect(result.transfers[0]).toEqual({
+        seller: '',
+        date: '05/18/1983',
+        price: 0,
+        type: 'NON-ARMS LENGTH OTHER',
+        deedRef1: '/01856/ 00471',
+        deedRef2: '',
+      });
+    });
+
+    it('should parse homestead as No Application', () => {
+      const result = parser.parsePropertyPage(anneArundelHtml);
+      expect(result.homesteadStatus).toBe('No Application');
+      expect(result.homesteadApplicationDate).toBe('');
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle empty HTML gracefully', () => {
       const result = parser.parsePropertyPage('<div></div>');
