@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { SdatPropertyResult } from './sdat.types';
 
 const PREFIX =
-  'MainContent_MainContent_cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_';
+  'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_';
 
 @Injectable()
 export class SdatParserService {
@@ -20,40 +20,45 @@ export class SdatParserService {
     const ownerName2 = span('lblOwnerName2_0');
     const ownerNames = [ownerName1, ownerName2].filter(Boolean);
 
-    const mailAddr1 = span('lblMailingAddress_0');
-    const mailAddr2 = span('lblMailingAddress2_0');
-    const mailingAddress = [mailAddr1, mailAddr2].filter(Boolean).join(', ');
+    const mailingAddress = span('lblMailingAddress_0');
 
-    // Account identifier
-    const district = span('lblDistrictWard_0');
-    const accountNumber = span('lblAccountNumber_0');
-    const accountId = district && accountNumber ? `${district}-${accountNumber}` : '';
+    // Account identifier: "District - 07 Account Identifier - 247192"
+    const headerText = span('lblDetailsStreetHeader_0');
+    const districtMatch = headerText.match(/District\s*-\s*(\S+)/);
+    const accountMatch = headerText.match(/Account Identifier\s*-\s*(\S+)/);
+    const district = districtMatch?.[1] || '';
+    const accountNumber = accountMatch?.[1] || '';
+    const accountId =
+      district && accountNumber ? `${district}-${accountNumber}` : '';
 
     // Premises address
-    const premAddr1 = span('lblPremisesAddress_0');
-    const premAddr2 = span('lblPremisesAddress2_0');
-    const premisesAddress = [premAddr1, premAddr2].filter(Boolean).join(', ');
+    const premisesAddress = span('lblPremisesAddress_0');
 
     // Baths: "2 full/ 2 half"
-    const bathText = span('Label28_0');
+    const bathText = span('Label34_0');
     const { fullBaths, halfBaths } = this.parseBaths(bathText);
 
     // Garage: "1 Attached"
-    const garageText = span('Label29_0');
+    const garageText = span('Label35_0');
     const { garageSpaces, garageType } = this.parseGarage(garageText);
 
-    // Phase-in assessment dates from table text
+    // Phase-in assessments
     const phaseInAssessments = this.parsePhaseInAssessments($);
 
     // Transfers
     const transfers = this.parseTransfers($);
 
+    // Homestead: "Approved   09/18/2017"
+    const homeRaw = span('lblHomeStatus_0');
+    const { homesteadStatus, homesteadApplicationDate } =
+      this.parseHomestead(homeRaw);
+
     return {
       // Owner
       ownerNames,
       mailingAddress,
-      deedReference: span('lblDeedReference_0'),
-      principalResidence: span('lblPrincipalResidence_0').toUpperCase() === 'YES',
+      deedReference: span('lblDedRef_0'),
+      principalResidence: span('lblPrinResidence_0').toUpperCase() === 'YES',
       propertyUse: span('lblUse_0'),
 
       // Location
@@ -61,25 +66,25 @@ export class SdatParserService {
       accountId,
       district,
       legalDescription: span('lblLegalDescription_0'),
-      map: span('lblMap_0'),
-      grid: span('lblGrid_0'),
-      parcel: span('lblParcel_0'),
-      neighborhood: span('lblNeighborhood_0'),
-      subdivisionCode: span('lblSubdivisionCode_0'),
-      section: span('lblSection_0'),
-      block: span('lblBlock_0'),
-      lot: span('lblLot_0'),
+      map: span('Label5_0'),
+      grid: span('Label6_0'),
+      parcel: span('Label7_0'),
+      neighborhood: span('Label8_0'),
+      subdivisionCode: span('Label9_0'),
+      section: span('Label10_0'),
+      block: span('Label11_0'),
+      lot: span('Label12_0'),
 
       // Structure
       yearBuilt: this.parseIntValue(span('Label18_0')),
       aboveGradeLivingArea: this.parseIntValue(span('Label19_0')),
-      finishedBasementArea: this.parseIntValue(span('Label20_0')),
-      landArea: span('Label22_0') || '',
-      stories: this.parseIntValue(span('Label23_0')),
-      basement: span('Label24_0').toUpperCase() === 'YES',
-      structureType: span('Label25_0'),
-      exterior: span('Label26_0'),
-      quality: span('Label27_0'),
+      finishedBasementArea: this.parseIntValue(span('Label27_0')),
+      landArea: span('Label20_0') || '',
+      stories: this.parseIntValue(span('Label22_0')),
+      basement: span('Label23_0').toUpperCase() === 'YES',
+      structureType: span('Label24_0'),
+      exterior: span('Label25_0'),
+      quality: span('lblQuality_0'),
       fullBaths,
       halfBaths,
       garageType,
@@ -103,10 +108,10 @@ export class SdatParserService {
 
       // Exemptions
       exemptions: {
-        partialExempt: span('lblExemptions_0') || '',
+        partialExempt: span('lblTaxLib_0') || '',
       },
-      homesteadStatus: span('lblHomesteadStatus_0'),
-      homesteadApplicationDate: span('lblHomesteadDate_0'),
+      homesteadStatus,
+      homesteadApplicationDate,
     };
   }
 
@@ -153,54 +158,52 @@ export class SdatParserService {
     return { garageSpaces: null, garageType: text };
   }
 
+  private parseHomestead(raw: string): {
+    homesteadStatus: string;
+    homesteadApplicationDate: string;
+  } {
+    if (!raw) return { homesteadStatus: '', homesteadApplicationDate: '' };
+    const dateMatch = raw.match(/(\d{2}\/\d{2}\/\d{4})/);
+    const date = dateMatch?.[1] || '';
+    const status = raw.replace(/\d{2}\/\d{2}\/\d{4}/, '').trim();
+    return { homesteadStatus: status, homesteadApplicationDate: date };
+  }
+
   private parsePhaseInAssessments(
     $: cheerio.CheerioAPI,
   ): SdatPropertyResult['phaseInAssessments'] {
     const assessments: SdatPropertyResult['phaseInAssessments'] = [];
 
-    // Phase-in 1
-    const land1 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInLand1_0`).text().trim(),
-    );
-    const improve1 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInImprove1_0`).text().trim(),
-    );
-    const total1 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInTotal1_0`).text().trim(),
-    );
+    const span = (suffix: string): string =>
+      $(`#${PREFIX}${suffix}`).text().trim();
 
-    // Phase-in 2
-    const land2 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInLand2_0`).text().trim(),
-    );
-    const improve2 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInImprove2_0`).text().trim(),
-    );
-    const total2 = this.parseMoneyValue(
-      $(`#${PREFIX}lblPhaseInTotal2_0`).text().trim(),
-    );
+    // Phase-in 1: date from lblPhaseDate_0 "As of 07/01/2025", total from lblPhaseInTotal_0
+    const phaseDate1Raw = span('lblPhaseDate_0');
+    const phaseDate1 =
+      phaseDate1Raw.match(/(\d{2}\/\d{2}\/\d{4})/)?.[1] || '';
+    const phaseTotal1 = this.parseMoneyValue(span('lblPhaseInTotal_0'));
 
-    // Extract dates from table text - look for MM/DD/YYYY patterns near phase-in
-    const phaseInSection = $('b:contains("Phase-in Assessments")').closest('tr').nextAll('tr');
-    const dateRow = phaseInSection.first();
-    const dateText = dateRow.text();
-    const dates = dateText.match(/\d{2}\/\d{2}\/\d{4}/g) || [];
+    // Phase-in 2: date from lblAssesDate_0 "As of 07/01/2026", total from lblAssesTotal_0
+    const phaseDate2Raw = span('lblAssesDate_0');
+    const phaseDate2 =
+      phaseDate2Raw.match(/(\d{2}\/\d{2}\/\d{4})/)?.[1] || '';
+    const phaseTotal2 = this.parseMoneyValue(span('lblAssesTotal_0'));
 
-    if (total1 > 0 || land1 > 0) {
+    if (phaseTotal1 > 0) {
       assessments.push({
-        date: dates[0] || '',
-        land: land1,
-        improvements: improve1,
-        total: total1,
+        date: phaseDate1,
+        land: 0,
+        improvements: 0,
+        total: phaseTotal1,
       });
     }
 
-    if (total2 > 0 || land2 > 0) {
+    if (phaseTotal2 > 0) {
       assessments.push({
-        date: dates[1] || '',
-        land: land2,
-        improvements: improve2,
-        total: total2,
+        date: phaseDate2,
+        land: 0,
+        improvements: 0,
+        total: phaseTotal2,
       });
     }
 
@@ -212,6 +215,9 @@ export class SdatParserService {
   ): SdatPropertyResult['transfers'] {
     const transfers: SdatPropertyResult['transfers'] = [];
 
+    const span = (suffix: string): string =>
+      $(`#${PREFIX}${suffix}`).text().trim();
+
     // Transfer 1: Labels 38-43
     // Transfer 2: Labels 44-49
     // Transfer 3: Labels 50-55
@@ -222,14 +228,12 @@ export class SdatParserService {
     ];
 
     for (const o of offsets) {
-      const seller = $(`#${PREFIX}Label${o.seller}_0`).text().trim();
-      const date = $(`#${PREFIX}Label${o.date}_0`).text().trim();
-      const price = this.parseMoneyValue(
-        $(`#${PREFIX}Label${o.price}_0`).text().trim(),
-      );
-      const type = $(`#${PREFIX}Label${o.type}_0`).text().trim();
-      const deedRef1 = $(`#${PREFIX}Label${o.deed1}_0`).text().trim();
-      const deedRef2 = $(`#${PREFIX}Label${o.deed2}_0`).text().trim();
+      const seller = span(`Label${o.seller}_0`);
+      const date = span(`Label${o.date}_0`);
+      const price = this.parseMoneyValue(span(`Label${o.price}_0`));
+      const type = span(`Label${o.type}_0`);
+      const deedRef1 = span(`Label${o.deed1}_0`);
+      const deedRef2 = span(`Label${o.deed2}_0`);
 
       if (seller || date) {
         transfers.push({ seller, date, price, type, deedRef1, deedRef2 });

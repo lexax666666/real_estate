@@ -3,6 +3,7 @@ import { PlaywrightCrawler, Configuration } from 'crawlee';
 import {
   SDAT_URL,
   SELECTORS,
+  SEARCH_TYPES,
   MARYLAND_COUNTIES,
 } from './sdat.constants';
 import { SdatSearchParams } from './sdat.types';
@@ -18,42 +19,48 @@ export class SdatBrowserService {
     const countyCode = this.resolveCountyCode(params.county);
     let resultHtml = '';
 
-    const config = Configuration.getGlobalConfig();
-    config.set('persistStorage', false);
+    const config = new Configuration({
+      persistStorage: false,
+      storageClientOptions: {
+        localDataDirectory: `/tmp/crawlee-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      },
+    });
 
     const crawler = new PlaywrightCrawler(
       {
         headless: true,
         maxRequestsPerCrawl: 1,
+        maxRequestRetries: 1,
         requestHandlerTimeoutSecs: 60,
         browserPoolOptions: {
           maxOpenPagesPerBrowser: 1,
         },
         async requestHandler({ page, log }) {
-          // Step 1: Select county
+          // Step 1: Select county and search type
           log.info(`Selecting county: ${params.county} (${countyCode})`);
           await page.waitForSelector(SELECTORS.countyDropdown, {
             timeout: 15000,
           });
           await page.selectOption(SELECTORS.countyDropdown, countyCode);
+          await page.selectOption(
+            SELECTORS.searchTypeDropdown,
+            SEARCH_TYPES.STREET_ADDRESS,
+          );
 
-          // Step 2: Select "Street Address" search type
-          await page.check(SELECTORS.streetAddressRadio);
+          // Step 2: Click Continue
+          await page.click(SELECTORS.continueButton);
 
-          // Step 3: Click Next
-          await page.click(SELECTORS.startNextButton);
-
-          // Step 4: Wait for and fill address fields
+          // Step 3: Fill address fields
           await page.waitForSelector(SELECTORS.streetNumberInput, {
             timeout: 15000,
           });
           await page.fill(SELECTORS.streetNumberInput, params.streetNumber);
           await page.fill(SELECTORS.streetNameInput, params.streetName);
 
-          // Step 5: Submit search
+          // Step 4: Submit search
           await page.click(SELECTORS.stepNextButton);
 
-          // Step 6: Wait for results
+          // Step 5: Wait for results
           await page.waitForSelector(SELECTORS.resultsTable, {
             timeout: 20000,
           });

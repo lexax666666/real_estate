@@ -9,10 +9,10 @@ export const SELECTORS = {
   // Step 1: County + search type selection
   countyDropdown:
     '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchType_ddlCounty',
-  streetAddressRadio:
-    '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchType_rdoSearchType_1',
-  startNextButton:
-    '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_StartNavigationTemplateContainerID_btnStepNextButton',
+  searchTypeDropdown:
+    '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchType_ddlSearchType',
+  continueButton:
+    '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_StartNavigationTemplateContainerID_btnContinue',
 
   // Step 2: Address input
   streetNumberInput:
@@ -25,6 +25,14 @@ export const SELECTORS = {
   // Results
   resultsTable:
     '#cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch',
+} as const;
+
+// Search type dropdown values
+export const SEARCH_TYPES = {
+  STREET_ADDRESS: '01',
+  PROPERTY_ACCOUNT: '02',
+  MAP_PARCEL: '03',
+  PROPERTY_SALES: '04',
 } as const;
 
 // County name → SDAT dropdown value mapping

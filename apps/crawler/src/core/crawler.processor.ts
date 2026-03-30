@@ -39,8 +39,9 @@ export class CrawlerProcessor extends WorkerHost {
     );
 
     // Find the right adapter
-    const adapter = siteId
-      ? this.registry.getAdapter(siteId)
+    const effectiveSiteId = siteId && siteId !== 'undefined' ? siteId : undefined;
+    const adapter = effectiveSiteId
+      ? this.registry.getAdapter(effectiveSiteId)
       : this.registry.findAdapter(address, state);
 
     if (!adapter) {

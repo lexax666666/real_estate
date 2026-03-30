@@ -5,6 +5,7 @@ import { BullBoardModule } from './bull-board/bull-board.module';
 import { CoreModule } from './core/core.module';
 import { SdatModule } from './sites/sdat/sdat.module';
 import { HealthController } from './health.controller';
+import { CrawlController } from './crawl.controller';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { HealthController } from './health.controller';
     SdatModule,
     BullBoardModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, CrawlController],
 })
 export class AppModule {}
