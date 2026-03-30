@@ -7,6 +7,7 @@ export default defineConfig({
     root: '.',
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@api': path.resolve(__dirname, '../api/src'),
     },
     testTimeout: 60000,
     hookTimeout: 60000,
