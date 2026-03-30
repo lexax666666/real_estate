@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { NeonHttpDatabase } from 'drizzle-orm/neon-http';
 import { eq, and, sql } from 'drizzle-orm';
-import * as schema from '@api/db/schema';
+import * as schema from '../../../../api/src/db/schema';
 import { JURISDICTION_CODES, MD_PARCEL_CSV_SITE_ID } from './sdat.constants';
 
 /** Shape of a single CSV row after header mapping */

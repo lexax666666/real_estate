@@ -13,7 +13,7 @@ import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from '../../../api/src/db/schema';
+import * as schema from '../../../../api/src/db/schema';
 import { importCsv, ImportStats } from './sdat-csv-import.service';
 
 async function main(): Promise<void> {
