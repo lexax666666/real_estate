@@ -4,6 +4,7 @@ import { QueueModule } from './queue/queue.module';
 import { BullBoardModule } from './bull-board/bull-board.module';
 import { CoreModule } from './core/core.module';
 import { SdatModule } from './sites/sdat/sdat.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -13,5 +14,6 @@ import { SdatModule } from './sites/sdat/sdat.module';
     SdatModule,
     BullBoardModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

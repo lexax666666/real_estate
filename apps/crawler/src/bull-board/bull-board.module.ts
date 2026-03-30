@@ -6,8 +6,11 @@ import { FastifyAdapter } from '@bull-board/fastify';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CRAWL_QUEUE } from '../core/crawler.processor';
+import { QueueModule } from '../queue/queue.module';
 
-@Module({})
+@Module({
+  imports: [QueueModule],
+})
 export class BullBoardModule implements OnModuleInit {
   constructor(
     @InjectQueue(CRAWL_QUEUE) private readonly crawlQueue: Queue,
