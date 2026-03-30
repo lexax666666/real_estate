@@ -1,11 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   parseCsvRow,
   parseLotSize,
   parseDescStyle,
   parseCoordinates,
   parseTraDate,
+  insertBatch,
   CsvRow,
+  ParsedCsvProperty,
+  ImportStats,
+  ImportOptions,
 } from '../sdat-csv-import.service';
 
 describe('parseCsvRow', () => {
@@ -345,6 +349,197 @@ describe('JURISDICTION_CODES mapping', () => {
   it('returns null for unknown JURSCODE', () => {
     const result = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'ZZZZ' });
     expect(result!.county).toBeNull();
+  });
+});
+
+describe('insertBatch', () => {
+  function createParsedProperty(overrides: Partial<ParsedCsvProperty> = {}): ParsedCsvProperty {
+    return {
+      address: '123 TEST ST',
+      city: 'TEST CITY',
+      state: 'MD',
+      zipCode: '12345',
+      county: 'FREDERICK',
+      ownerNames: null,
+      propertyType: null,
+      yearBuilt: null,
+      squareFootage: null,
+      lotSize: null,
+      stories: null,
+      basement: null,
+      ownerOccupied: null,
+      legalDescription: null,
+      zoning: null,
+      assessorId: null,
+      latitude: null,
+      longitude: null,
+      lastSaleDate: null,
+      lastSalePrice: null,
+      subdivision: null,
+      taxAssessment: null,
+      saleHistory: null,
+      rawData: { ADDRESS: '123 TEST ST' },
+      ...overrides,
+    };
+  }
+
+  function createStats(): ImportStats {
+    return {
+      totalRows: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      elapsedMs: 0,
+    };
+  }
+
+  function createMockDb() {
+    const returningFn = vi.fn().mockResolvedValue([
+      { id: 1, address: '123 test st', isNew: true },
+    ]);
+    const onConflictDoUpdateFn = vi.fn().mockReturnValue({ returning: returningFn });
+    const valuesFn = vi.fn().mockReturnValue({ onConflictDoUpdate: onConflictDoUpdateFn });
+    const insertFn = vi.fn().mockReturnValue({ values: valuesFn });
+
+    // For sale_history select query
+    const whereFn = vi.fn().mockResolvedValue([]);
+    const fromFn = vi.fn().mockReturnValue({ where: whereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: fromFn });
+
+    const db = {
+      insert: insertFn,
+      select: selectFn,
+    } as any;
+
+    return {
+      db,
+      insertFn,
+      valuesFn,
+      onConflictDoUpdateFn,
+      returningFn,
+      selectFn,
+    };
+  }
+
+  it('calls insert with bulk values for properties', async () => {
+    const { db, insertFn, valuesFn } = createMockDb();
+    const stats = createStats();
+    const batch = [createParsedProperty()];
+
+    await insertBatch(db, batch, stats);
+
+    expect(insertFn).toHaveBeenCalled();
+    // First call should be properties insert
+    const firstCallValues = valuesFn.mock.calls[0][0];
+    expect(firstCallValues).toBeInstanceOf(Array);
+    expect(firstCallValues[0].address).toBe('123 test st');
+  });
+
+  it('tracks inserted count from upsert returning', async () => {
+    const { db, returningFn } = createMockDb();
+    returningFn.mockResolvedValueOnce([
+      { id: 1, address: '123 test st', isNew: true },
+      { id: 2, address: '456 oak st', isNew: false },
+    ]);
+    const stats = createStats();
+    const batch = [
+      createParsedProperty({ address: '123 TEST ST' }),
+      createParsedProperty({ address: '456 OAK ST' }),
+    ];
+
+    await insertBatch(db, batch, stats);
+
+    expect(stats.inserted).toBe(1);
+    expect(stats.updated).toBe(1);
+  });
+
+  it('tracks skipped count when rows not returned from upsert', async () => {
+    const { db, returningFn } = createMockDb();
+    // Only 1 of 2 rows returned = 1 skipped (already enriched by md-sdat)
+    returningFn.mockResolvedValueOnce([
+      { id: 1, address: '123 test st', isNew: true },
+    ]);
+    const stats = createStats();
+    const batch = [
+      createParsedProperty({ address: '123 TEST ST' }),
+      createParsedProperty({ address: '999 SKIPPED AVE' }),
+    ];
+
+    await insertBatch(db, batch, stats);
+
+    expect(stats.inserted).toBe(1);
+    expect(stats.skipped).toBe(1);
+  });
+
+  it('deduplicates addresses within a batch', async () => {
+    const { db, valuesFn, returningFn } = createMockDb();
+    returningFn.mockResolvedValueOnce([
+      { id: 1, address: '123 test st', isNew: true },
+    ]);
+    const stats = createStats();
+    // Same address twice in one batch
+    const batch = [
+      createParsedProperty({ address: '123 TEST ST', city: 'FIRST' }),
+      createParsedProperty({ address: '123 TEST ST', city: 'SECOND' }),
+    ];
+
+    await insertBatch(db, batch, stats);
+
+    // Should only insert 1 row (deduped, last wins)
+    const firstCallValues = valuesFn.mock.calls[0][0];
+    expect(firstCallValues).toHaveLength(1);
+    expect(firstCallValues[0].city).toBe('SECOND');
+  });
+
+  it('handles batch errors gracefully', async () => {
+    const { db } = createMockDb();
+    // Make insert throw
+    db.insert = vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: vi.fn().mockRejectedValue(new Error('DB error')),
+        }),
+      }),
+    });
+    const stats = createStats();
+    const batch = [createParsedProperty(), createParsedProperty({ address: '456 OAK ST' })];
+
+    await insertBatch(db, batch, stats);
+
+    expect(stats.errors).toBe(2); // entire batch counted as errors
+  });
+
+  it('skips related inserts when upsert returns empty', async () => {
+    const { db, insertFn, returningFn } = createMockDb();
+    // All rows skipped (md-sdat enriched)
+    returningFn.mockResolvedValueOnce([]);
+    const stats = createStats();
+    const batch = [
+      createParsedProperty({
+        taxAssessment: { land: 100, improvements: 200, total: 300 },
+      }),
+    ];
+
+    await insertBatch(db, batch, stats);
+
+    // Only 1 insert call (properties), no site_crawl_data/tax/sale inserts
+    expect(insertFn).toHaveBeenCalledTimes(1);
+    expect(stats.skipped).toBe(1);
+  });
+});
+
+describe('ImportOptions', () => {
+  it('ImportOptions interface accepts batch size and dry run', () => {
+    const opts: ImportOptions = { batchSize: 100, dryRun: true };
+    expect(opts.batchSize).toBe(100);
+    expect(opts.dryRun).toBe(true);
+  });
+
+  it('ImportOptions defaults are undefined', () => {
+    const opts: ImportOptions = {};
+    expect(opts.batchSize).toBeUndefined();
+    expect(opts.dryRun).toBeUndefined();
   });
 });
 

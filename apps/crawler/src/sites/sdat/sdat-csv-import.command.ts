@@ -6,15 +6,20 @@
  *   pnpm dlx tsx apps/crawler/src/sites/sdat/sdat-csv-import.command.ts <csv-file-path>
  *
  * Requires POSTGRES_URL environment variable to be set.
+ *
+ * Optional env vars (for CI / GitHub Actions):
+ *   IMPORT_BATCH_SIZE  — rows per SQL batch (default 500)
+ *   IMPORT_DRY_RUN     — "true" to skip DB writes (default false)
+ *   GITHUB_STEP_SUMMARY — path to summary file (set automatically by GitHub Actions)
  */
 
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import { stat } from 'fs/promises';
+import { stat, appendFile } from 'fs/promises';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '../../../../api/src/db/schema';
-import { importCsv, ImportStats } from './sdat-csv-import.service';
+import { importCsv, ImportStats, ImportOptions } from './sdat-csv-import.service';
 
 async function main(): Promise<void> {
   const filePath = process.argv[2];
@@ -40,16 +45,25 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Read import options from environment
+  const options: ImportOptions = {};
+  if (process.env.IMPORT_BATCH_SIZE) {
+    options.batchSize = parseInt(process.env.IMPORT_BATCH_SIZE, 10);
+  }
+  if (process.env.IMPORT_DRY_RUN === 'true') {
+    options.dryRun = true;
+  }
+
   console.log('Connecting to database...');
-  const sql = neon(postgresUrl);
-  const db = drizzle(sql, { schema });
+  const sqlClient = neon(postgresUrl);
+  const db = drizzle(sqlClient, { schema });
 
   console.log('Starting CSV import...');
   console.log('---');
 
   const stats: ImportStats = await importCsv(db, absolutePath, (msg) => {
     console.log(`[import] ${msg}`);
-  });
+  }, options);
 
   console.log('---');
   console.log('Import complete!');
@@ -61,9 +75,37 @@ async function main(): Promise<void> {
   console.log(
     `  Elapsed:     ${(stats.elapsedMs / 1000).toFixed(1)}s`,
   );
-  console.log(
-    `  Rate:        ${Math.round(stats.totalRows / (stats.elapsedMs / 1000))}/sec`,
-  );
+  const rate = stats.elapsedMs > 0
+    ? Math.round(stats.totalRows / (stats.elapsedMs / 1000))
+    : 0;
+  console.log(`  Rate:        ${rate}/sec`);
+
+  // Write GitHub Actions Job Summary if running in CI
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    const dryLabel = options.dryRun ? ' (DRY RUN)' : '';
+    const summary = `## SDAT CSV Import Results${dryLabel}
+
+| Metric | Value |
+|--------|-------|
+| Total rows | ${stats.totalRows.toLocaleString()} |
+| Inserted | ${stats.inserted.toLocaleString()} |
+| Updated | ${stats.updated.toLocaleString()} |
+| Skipped | ${stats.skipped.toLocaleString()} |
+| Errors | ${stats.errors.toLocaleString()} |
+| Elapsed | ${(stats.elapsedMs / 1000).toFixed(1)}s |
+| Rate | ${rate}/sec |
+| File size | ${fileSizeMB} MB |
+| Batch size | ${options.batchSize ?? 500} |
+`;
+    await appendFile(summaryPath, summary);
+  }
+
+  // Exit with error code if too many errors
+  if (stats.errors > 0 && stats.errors > stats.totalRows * 0.01) {
+    console.error(`Too many errors (${stats.errors}/${stats.totalRows}), exiting with code 1`);
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

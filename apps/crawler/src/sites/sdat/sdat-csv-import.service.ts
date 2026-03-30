@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { NeonHttpDatabase } from 'drizzle-orm/neon-http';
-import { eq, and, sql } from 'drizzle-orm';
+import { sql, or, not, inArray, isNull } from 'drizzle-orm';
 import * as schema from '../../../../api/src/db/schema';
 import { JURISDICTION_CODES, MD_PARCEL_CSV_SITE_ID } from './sdat.constants';
 
@@ -51,6 +51,11 @@ export interface ImportStats {
   skipped: number;
   errors: number;
   elapsedMs: number;
+}
+
+export interface ImportOptions {
+  batchSize?: number;  // default 500
+  dryRun?: boolean;    // default false
 }
 
 /**
@@ -272,18 +277,21 @@ export function parseTraDate(tradate: string | undefined): string | null {
   return `${year}-${month}-${day}`;
 }
 
-const BATCH_SIZE = 1000;
+const DEFAULT_BATCH_SIZE = 500;
 const LOG_INTERVAL = 10000;
 
 /**
  * Import Maryland parcel CSV into the database.
- * Streams the file and batch-inserts for performance.
+ * Streams the file and uses bulk SQL operations for performance.
  */
 export async function importCsv(
   db: NeonHttpDatabase<typeof schema>,
   filePath: string,
   logger: (msg: string) => void = console.log,
+  options: ImportOptions = {},
 ): Promise<ImportStats> {
+  const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
+  const dryRun = options.dryRun ?? false;
   const startTime = Date.now();
   const stats: ImportStats = {
     totalRows: 0,
@@ -294,6 +302,11 @@ export async function importCsv(
     elapsedMs: 0,
   };
 
+  if (dryRun) {
+    logger('DRY RUN mode — no data will be written to the database');
+  }
+  logger(`Batch size: ${batchSize}`);
+
   const batch: ParsedCsvProperty[] = [];
 
   const parser = createReadStream(filePath, { encoding: 'utf-8' }).pipe(
@@ -301,7 +314,6 @@ export async function importCsv(
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      // Handle BOM
       bom: true,
     }),
   );
@@ -318,8 +330,12 @@ export async function importCsv(
 
       batch.push(parsed);
 
-      if (batch.length >= BATCH_SIZE) {
-        await insertBatch(db, batch, stats);
+      if (batch.length >= batchSize) {
+        if (!dryRun) {
+          await insertBatch(db, batch, stats, logger);
+        } else {
+          stats.inserted += batch.length;
+        }
         batch.length = 0;
       }
 
@@ -344,7 +360,11 @@ export async function importCsv(
 
   // Flush remaining batch
   if (batch.length > 0) {
-    await insertBatch(db, batch, stats);
+    if (!dryRun) {
+      await insertBatch(db, batch, stats, logger);
+    } else {
+      stats.inserted += batch.length;
+    }
   }
 
   stats.elapsedMs = Date.now() - startTime;
@@ -352,170 +372,194 @@ export async function importCsv(
 }
 
 /**
- * Insert a batch of parsed properties into the database.
- * Uses ON CONFLICT DO UPDATE for idempotency.
+ * Insert a batch of parsed properties using bulk SQL operations.
+ * ~4 SQL calls per batch instead of ~3-5 per row.
  */
-async function insertBatch(
+export async function insertBatch(
   db: NeonHttpDatabase<typeof schema>,
   batch: ParsedCsvProperty[],
   stats: ImportStats,
+  logger: (msg: string) => void = console.log,
 ): Promise<void> {
-  for (const prop of batch) {
-    try {
+  try {
+    // Build address → parsed property lookup and deduplicate within batch
+    const addressMap = new Map<string, ParsedCsvProperty>();
+    for (const prop of batch) {
       const normalizedAddress = prop.address.toLowerCase().trim();
+      addressMap.set(normalizedAddress, prop);
+    }
 
-      // Check if already enriched by SDAT crawler — skip if so
-      const existing = await db.query.properties.findFirst({
-        where: eq(schema.properties.address, normalizedAddress),
-        columns: { id: true, dataSource: true },
+    const propertiesValues = Array.from(addressMap.entries()).map(
+      ([address, prop]) => ({
+        address,
+        city: prop.city,
+        state: prop.state,
+        zipCode: prop.zipCode,
+        county: prop.county,
+        ownerNames: prop.ownerNames,
+        propertyType: prop.propertyType,
+        yearBuilt: prop.yearBuilt,
+        squareFootage: prop.squareFootage,
+        lotSize: prop.lotSize,
+        stories: prop.stories,
+        basement: prop.basement,
+        ownerOccupied: prop.ownerOccupied,
+        legalDescription: prop.legalDescription,
+        zoning: prop.zoning,
+        assessorId: prop.assessorId,
+        latitude: prop.latitude,
+        longitude: prop.longitude,
+        lastSaleDate: prop.lastSaleDate,
+        lastSalePrice: prop.lastSalePrice,
+        subdivision: prop.subdivision,
+        dataSource: MD_PARCEL_CSV_SITE_ID,
+      }),
+    );
+
+    // 1. Bulk upsert properties — skip rows already enriched by SDAT crawler
+    //    ON CONFLICT (address) DO UPDATE ... WHERE data_source NOT IN ('md-sdat','merged')
+    //    Rows where WHERE doesn't match are silently skipped (not returned).
+    //    xmax=0 distinguishes true inserts from updates.
+    const upserted = await db
+      .insert(schema.properties)
+      .values(propertiesValues)
+      .onConflictDoUpdate({
+        target: schema.properties.address,
+        set: {
+          city: sql`excluded.city`,
+          state: sql`excluded.state`,
+          zipCode: sql`excluded.zip_code`,
+          county: sql`excluded.county`,
+          ownerNames: sql`excluded.owner_names`,
+          propertyType: sql`excluded.property_type`,
+          yearBuilt: sql`excluded.year_built`,
+          squareFootage: sql`excluded.square_footage`,
+          lotSize: sql`excluded.lot_size`,
+          stories: sql`excluded.stories`,
+          basement: sql`excluded.basement`,
+          ownerOccupied: sql`excluded.owner_occupied`,
+          legalDescription: sql`excluded.legal_description`,
+          zoning: sql`excluded.zoning`,
+          assessorId: sql`excluded.assessor_id`,
+          latitude: sql`excluded.latitude`,
+          longitude: sql`excluded.longitude`,
+          lastSaleDate: sql`excluded.last_sale_date`,
+          lastSalePrice: sql`excluded.last_sale_price`,
+          subdivision: sql`excluded.subdivision`,
+          dataSource: sql`excluded.data_source`,
+          updatedAt: sql`now()`,
+        },
+        where: or(
+          isNull(schema.properties.dataSource),
+          not(inArray(schema.properties.dataSource, ['md-sdat', 'merged'])),
+        ),
+      })
+      .returning({
+        id: schema.properties.id,
+        address: schema.properties.address,
+        isNew: sql<boolean>`(xmax = 0)`,
       });
 
-      if (
-        existing &&
-        (existing.dataSource === 'md-sdat' || existing.dataSource === 'merged')
-      ) {
-        stats.skipped++;
-        continue;
-      }
+    // Track insert vs update vs skip counts
+    const newCount = upserted.filter((r) => r.isNew).length;
+    stats.inserted += newCount;
+    stats.updated += upserted.length - newCount;
+    stats.skipped += propertiesValues.length - upserted.length;
 
-      let propertyId: number;
+    if (upserted.length === 0) return;
 
-      if (existing) {
-        // Update existing
-        await db
-          .update(schema.properties)
-          .set({
-            city: prop.city,
-            state: prop.state,
-            zipCode: prop.zipCode,
-            county: prop.county,
-            ownerNames: prop.ownerNames,
-            propertyType: prop.propertyType,
-            yearBuilt: prop.yearBuilt,
-            squareFootage: prop.squareFootage,
-            lotSize: prop.lotSize,
-            stories: prop.stories,
-            basement: prop.basement,
-            ownerOccupied: prop.ownerOccupied,
-            legalDescription: prop.legalDescription,
-            zoning: prop.zoning,
-            assessorId: prop.assessorId,
-            latitude: prop.latitude,
-            longitude: prop.longitude,
-            lastSaleDate: prop.lastSaleDate,
-            lastSalePrice: prop.lastSalePrice,
-            subdivision: prop.subdivision,
-            dataSource: MD_PARCEL_CSV_SITE_ID,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.properties.id, existing.id));
+    // 2. Bulk upsert site_crawl_data
+    const crawlDataValues = upserted.map((row) => ({
+      propertyId: row.id,
+      siteId: MD_PARCEL_CSV_SITE_ID,
+      rawData: addressMap.get(row.address)!.rawData,
+    }));
 
-        propertyId = existing.id;
-        stats.updated++;
-      } else {
-        // Insert new
-        const [inserted] = await db
-          .insert(schema.properties)
-          .values({
-            address: normalizedAddress,
-            city: prop.city,
-            state: prop.state,
-            zipCode: prop.zipCode,
-            county: prop.county,
-            ownerNames: prop.ownerNames,
-            propertyType: prop.propertyType,
-            yearBuilt: prop.yearBuilt,
-            squareFootage: prop.squareFootage,
-            lotSize: prop.lotSize,
-            stories: prop.stories,
-            basement: prop.basement,
-            ownerOccupied: prop.ownerOccupied,
-            legalDescription: prop.legalDescription,
-            zoning: prop.zoning,
-            assessorId: prop.assessorId,
-            latitude: prop.latitude,
-            longitude: prop.longitude,
-            lastSaleDate: prop.lastSaleDate,
-            lastSalePrice: prop.lastSalePrice,
-            subdivision: prop.subdivision,
-            dataSource: MD_PARCEL_CSV_SITE_ID,
-          })
-          .returning({ id: schema.properties.id });
+    await db
+      .insert(schema.siteCrawlData)
+      .values(crawlDataValues)
+      .onConflictDoUpdate({
+        target: [schema.siteCrawlData.propertyId, schema.siteCrawlData.siteId],
+        set: {
+          rawData: sql`excluded.raw_data`,
+          updatedAt: sql`now()`,
+        },
+      });
 
-        propertyId = inserted.id;
-        stats.inserted++;
-      }
+    // 3. Bulk upsert tax_assessments
+    const currentYear = new Date().getFullYear();
+    const taxValues = upserted
+      .filter((row) => addressMap.get(row.address)?.taxAssessment)
+      .map((row) => {
+        const ta = addressMap.get(row.address)!.taxAssessment!;
+        return {
+          propertyId: row.id,
+          year: currentYear,
+          landValue: ta.land.toString(),
+          improvementValue: ta.improvements.toString(),
+          totalValue: ta.total.toString(),
+        };
+      });
 
-      // Upsert site_crawl_data with raw CSV fields
+    if (taxValues.length > 0) {
       await db
-        .insert(schema.siteCrawlData)
-        .values({
-          propertyId,
-          siteId: MD_PARCEL_CSV_SITE_ID,
-          rawData: prop.rawData,
-        })
+        .insert(schema.taxAssessments)
+        .values(taxValues)
         .onConflictDoUpdate({
           target: [
-            schema.siteCrawlData.propertyId,
-            schema.siteCrawlData.siteId,
+            schema.taxAssessments.propertyId,
+            schema.taxAssessments.year,
           ],
           set: {
-            rawData: prop.rawData,
-            updatedAt: new Date(),
+            landValue: sql`excluded.land_value`,
+            improvementValue: sql`excluded.improvement_value`,
+            totalValue: sql`excluded.total_value`,
           },
         });
+    }
 
-      // Insert tax assessment (use current year)
-      if (prop.taxAssessment) {
-        const currentYear = new Date().getFullYear();
-        await db
-          .insert(schema.taxAssessments)
-          .values({
-            propertyId,
-            year: currentYear,
-            landValue: prop.taxAssessment.land.toString(),
-            improvementValue: prop.taxAssessment.improvements.toString(),
-            totalValue: prop.taxAssessment.total.toString(),
-          })
-          .onConflictDoUpdate({
-            target: [
-              schema.taxAssessments.propertyId,
-              schema.taxAssessments.year,
-            ],
-            set: {
-              landValue: prop.taxAssessment.land.toString(),
-              improvementValue: prop.taxAssessment.improvements.toString(),
-              totalValue: prop.taxAssessment.total.toString(),
-            },
-          });
-      }
+    // 4. Bulk insert sale_history (deduplicate with single SELECT)
+    const saleEntries = upserted
+      .filter((row) => addressMap.get(row.address)?.saleHistory)
+      .map((row) => {
+        const sh = addressMap.get(row.address)!.saleHistory!;
+        return {
+          propertyId: row.id,
+          saleDate: sh.date,
+          salePrice: sh.price,
+          seller: sh.seller,
+          documentType: sh.documentType,
+        };
+      });
 
-      // Insert sale history
-      if (prop.saleHistory) {
-        const existingSale = await db.query.saleHistory.findFirst({
-          where: and(
-            eq(schema.saleHistory.propertyId, propertyId),
-            eq(schema.saleHistory.saleDate, prop.saleHistory.date),
-          ),
-        });
+    if (saleEntries.length > 0) {
+      const salePropertyIds = [...new Set(saleEntries.map((s) => s.propertyId))];
+      const existingSales = await db
+        .select({
+          propertyId: schema.saleHistory.propertyId,
+          saleDate: schema.saleHistory.saleDate,
+        })
+        .from(schema.saleHistory)
+        .where(inArray(schema.saleHistory.propertyId, salePropertyIds));
 
-        if (!existingSale) {
-          await db.insert(schema.saleHistory).values({
-            propertyId,
-            saleDate: prop.saleHistory.date,
-            salePrice: prop.saleHistory.price,
-            seller: prop.saleHistory.seller,
-            documentType: prop.saleHistory.documentType,
-          });
-        }
+      const existingSet = new Set(
+        existingSales.map((s) => `${s.propertyId}:${s.saleDate}`),
+      );
+
+      const newSales = saleEntries.filter(
+        (s) => !existingSet.has(`${s.propertyId}:${s.saleDate}`),
+      );
+
+      if (newSales.length > 0) {
+        await db.insert(schema.saleHistory).values(newSales);
       }
-    } catch (err) {
-      stats.errors++;
-      if (stats.errors <= 10) {
-        console.error(
-          `Insert error for "${prop.address}": ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+    }
+  } catch (err) {
+    stats.errors += batch.length;
+    if (stats.errors <= batch.length + 10) {
+      logger(
+        `Batch insert error (${batch.length} rows): ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 }
