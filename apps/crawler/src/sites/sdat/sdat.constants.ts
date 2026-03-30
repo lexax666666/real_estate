@@ -67,3 +67,34 @@ export const MARYLAND_COUNTIES: Record<string, string> = {
 export const COUNTY_BY_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(MARYLAND_COUNTIES).map(([name, code]) => [code, name]),
 );
+
+// CSV bulk import site identifier (distinct from crawler's 'md-sdat')
+export const MD_PARCEL_CSV_SITE_ID = 'md-parcel-csv';
+
+// JURSCODE (4-char jurisdiction code) → County name mapping for MD parcel CSV
+export const JURISDICTION_CODES: Record<string, string> = {
+  ALLE: 'ALLEGANY',
+  ANNE: 'ANNE ARUNDEL',
+  BACI: 'BALTIMORE CITY',
+  BACO: 'BALTIMORE COUNTY',
+  CALV: 'CALVERT',
+  CARO: 'CAROLINE',
+  CARR: 'CARROLL',
+  CECI: 'CECIL',
+  CHAR: 'CHARLES',
+  DORC: 'DORCHESTER',
+  FRED: 'FREDERICK',
+  GARR: 'GARRETT',
+  HARF: 'HARFORD',
+  HOWA: 'HOWARD',
+  KENT: 'KENT',
+  MONT: 'MONTGOMERY',
+  PRIN: "PRINCE GEORGE'S",
+  QUEE: "QUEEN ANNE'S",
+  SOME: 'SOMERSET',
+  STMA: "ST. MARY'S",
+  TALB: 'TALBOT',
+  WASH: 'WASHINGTON',
+  WICO: 'WICOMICO',
+  WORC: 'WORCESTER',
+};

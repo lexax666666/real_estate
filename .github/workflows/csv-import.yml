@@ -1,0 +1,103 @@
+name: SDAT CSV Bulk Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv_url:
+        description: 'Direct download URL to CSV file (e.g. GitHub Release asset URL)'
+        required: true
+        type: string
+      target:
+        description: 'Database target: "production" or Neon branch name (e.g. "pr-42")'
+        required: true
+        default: 'production'
+        type: string
+      batch_size:
+        description: 'Rows per SQL batch'
+        required: false
+        default: '500'
+        type: string
+      dry_run:
+        description: 'Dry run (skip DB writes)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  group: csv-import-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # --- Resolve DB URL ---
+      - name: Create Neon branch (non-production)
+        if: inputs.target != 'production'
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: csv-import-${{ inputs.target }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Set database URL
+        id: db
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            echo "url=${{ secrets.POSTGRES_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=${{ steps.neon.outputs.db_url }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Run Migrations ---
+      - name: Run database migrations
+        run: pnpm --filter @property-search/api exec tsx src/db/migrate.ts
+        env:
+          POSTGRES_URL: ${{ steps.db.outputs.url }}
+
+      # --- Download CSV ---
+      - name: Download CSV
+        run: |
+          echo "Downloading CSV from: ${{ inputs.csv_url }}"
+          curl -L --fail --retry 3 --retry-delay 10 \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -o /tmp/md-parcels.csv \
+            "${{ inputs.csv_url }}"
+          ls -lh /tmp/md-parcels.csv
+
+      # --- Run Import ---
+      - name: Run CSV import
+        run: |
+          pnpm dlx tsx apps/crawler/src/sites/sdat/sdat-csv-import.command.ts /tmp/md-parcels.csv
+        env:
+          POSTGRES_URL: ${{ steps.db.outputs.url }}
+          IMPORT_BATCH_SIZE: ${{ inputs.batch_size }}
+          IMPORT_DRY_RUN: ${{ inputs.dry_run }}
+
+      # --- Cleanup Neon branch (disabled for now to allow post-import inspection) ---
+      # - name: Delete Neon branch (non-production)
+      #   if: always() && inputs.target != 'production' && steps.neon.outcome == 'success'
+      #   uses: neondatabase/delete-branch-action@v3
+      #   with:
+      #     project_id: ${{ vars.NEON_PROJECT_ID }}
+      #     branch: csv-import-${{ inputs.target }}
+      #     api_key: ${{ secrets.NEON_API_KEY }}
