@@ -69,6 +69,40 @@ describe('SdatBrowserService (e2e)', () => {
     expect(result.transfers.length).toBeGreaterThan(0);
   }, 90000);
 
+  it('should fetch and parse Montgomery County property', async () => {
+    const params: SdatSearchParams = {
+      county: 'MONTGOMERY',
+      streetNumber: '100',
+      streetName: 'MARYLAND',
+    };
+
+    const html = await browserService.fetchPropertyHtml(params);
+    const result = parserService.parsePropertyPage(html);
+
+    expect(result.ownerNames.length).toBeGreaterThan(0);
+    expect(result.premisesAddress).toContain('MARYLAND');
+    expect(result.district).toBeTruthy();
+    expect(result.accountId).toBeTruthy();
+    expect(result.currentValue.total).toBeGreaterThan(0);
+  }, 90000);
+
+  it('should fetch and parse Anne Arundel County property', async () => {
+    const params: SdatSearchParams = {
+      county: 'ANNE ARUNDEL',
+      streetNumber: '101',
+      streetName: 'COLLEGE',
+    };
+
+    const html = await browserService.fetchPropertyHtml(params);
+    const result = parserService.parsePropertyPage(html);
+
+    expect(result.ownerNames.length).toBeGreaterThan(0);
+    expect(result.premisesAddress).toContain('COLLEGE');
+    expect(result.district).toBeTruthy();
+    expect(result.accountId).toBeTruthy();
+    expect(result.currentValue.total).toBeGreaterThan(0);
+  }, 90000);
+
   it('should throw for an invalid county', async () => {
     const params: SdatSearchParams = {
       county: 'NONEXISTENT',
