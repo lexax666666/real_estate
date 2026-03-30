@@ -8,5 +8,6 @@ onlyBuiltDependencies:
   - "@nestjs/core"
   - bufferutil
   - dd-trace
+  - playwright
   - sharp
   - unrs-resolver

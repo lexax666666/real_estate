@@ -108,6 +108,7 @@ export class PropertyDbService {
           legalDescription: propertyData.legalDescription || null,
           features: propertyData.features || null,
           rawResponse: rawResponse || null,
+          dataSource: 'rentcast',
           accessCount: 1,
         })
         .onConflictDoUpdate({
@@ -142,6 +143,7 @@ export class PropertyDbService {
             legalDescription: propertyData.legalDescription || null,
             features: propertyData.features || null,
             rawResponse: rawResponse || null,
+            dataSource: 'rentcast',
             updatedAt: new Date(),
             lastAccessedAt: new Date(),
             accessCount: sql`${properties.accessCount} + 1`,

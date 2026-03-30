@@ -50,6 +50,7 @@ export const properties = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     lastAccessedAt: timestamp('last_accessed_at'),
     accessCount: integer('access_count').default(0).notNull(),
+    dataSource: varchar('data_source', { length: 20 }),
   },
   (table) => [uniqueIndex('properties_address_idx').on(table.address)],
 );
@@ -105,11 +106,49 @@ export const saleHistory = pgTable('sale_history', {
   recordingDate: varchar('recording_date'),
 });
 
+// Generic table for extended data from any crawl site (1 row per property per site)
+export const siteCrawlData = pgTable(
+  'site_crawl_data',
+  {
+    id: serial('id').primaryKey(),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'cascade' }),
+    siteId: varchar('site_id', { length: 50 }).notNull(),
+    rawHtml: text('raw_html'),
+    rawData: jsonb('raw_data'),
+    crawledAt: timestamp('crawled_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('site_crawl_data_property_site_idx').on(
+      table.propertyId,
+      table.siteId,
+    ),
+  ],
+);
+
+// Audit trail for crawl jobs (complements BullMQ's in-memory tracking)
+export const crawlJobs = pgTable('crawl_jobs', {
+  id: serial('id').primaryKey(),
+  propertyId: integer('property_id').references(() => properties.id, {
+    onDelete: 'set null',
+  }),
+  address: varchar('address').notNull(),
+  siteId: varchar('site_id', { length: 50 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  attempts: integer('attempts').default(0).notNull(),
+  lastError: text('last_error'),
+  crawledAt: timestamp('crawled_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relations
 export const propertiesRelations = relations(properties, ({ many }) => ({
   taxAssessments: many(taxAssessments),
   propertyTaxes: many(propertyTaxes),
   saleHistory: many(saleHistory),
+  siteCrawlData: many(siteCrawlData),
 }));
 
 export const taxAssessmentsRelations = relations(
@@ -132,6 +171,20 @@ export const propertyTaxesRelations = relations(propertyTaxes, ({ one }) => ({
 export const saleHistoryRelations = relations(saleHistory, ({ one }) => ({
   property: one(properties, {
     fields: [saleHistory.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const siteCrawlDataRelations = relations(siteCrawlData, ({ one }) => ({
+  property: one(properties, {
+    fields: [siteCrawlData.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const crawlJobsRelations = relations(crawlJobs, ({ one }) => ({
+  property: one(properties, {
+    fields: [crawlJobs.propertyId],
     references: [properties.id],
   }),
 }));

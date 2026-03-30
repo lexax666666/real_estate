@@ -44,3 +44,6 @@ jobs:
 
       - name: Deploy Web
         run: flyctl deploy --config apps/web/fly.toml --remote-only
+
+      - name: Deploy Crawler
+        run: flyctl deploy --config apps/crawler/fly.toml --remote-only

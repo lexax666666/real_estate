@@ -1,0 +1,42 @@
+{
+  "name": "@property-search/crawler",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "nest start",
+    "start:prod": "node dist/crawler/src/main",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@bull-board/api": "^6.6.2",
+    "@bull-board/fastify": "^6.6.2",
+    "@neondatabase/serverless": "^1.0.2",
+    "@nestjs/bullmq": "^11.0.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-fastify": "^11.0.0",
+    "bullmq": "^5.0.0",
+    "cheerio": "^1.0.0",
+    "crawlee": "^3.0.0",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.0.0",
+    "playwright": "^1.50.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@testcontainers/postgresql": "^11.13.0",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.20.0",
+    "testcontainers": "^11.13.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^2.1.9"
+  }
+}

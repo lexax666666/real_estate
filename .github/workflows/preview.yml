@@ -78,6 +78,16 @@ jobs:
           build_args: >
             NEXT_PUBLIC_API_URL=https://property-search-api-pr-${{ github.event.number }}.fly.dev
 
+      # --- Deploy Crawler ---
+      - name: Deploy Crawler preview
+        uses: superfly/fly-pr-review-apps@1.5.0
+        with:
+          name: property-search-crawler-pr-${{ github.event.number }}
+          config: apps/crawler/fly.toml
+          secrets: >
+            POSTGRES_URL=${{ steps.neon.outputs.db_url_pooled }}
+            REDIS_URL=${{ secrets.REDIS_URL }}
+
       # --- Smoke Tests ---
       - name: Smoke tests
         if: github.event.action != 'closed'
