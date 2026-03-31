@@ -146,9 +146,32 @@ describe('CsvToCopyTransform', () => {
     expect(fields[27]).toBe('555300');
   });
 
-  it('skips rows with no ADDRESS', async () => {
-    const output = await transformRow({ ...amelungRow, ADDRESS: '' });
+  it('skips rows with no ADDRESS and no PREMSNUM/PREMSNAM', async () => {
+    const output = await transformRow({ ...amelungRow, ADDRESS: '', PREMSNUM: '', PREMSNAM: '' });
     expect(output).toBeNull();
+  });
+
+  it('falls back to PREMSNUM + PREMSNAM when ADDRESS is empty', async () => {
+    const row: CsvRow = {
+      ...amelungRow,
+      ADDRESS: '',
+      PREMSNUM: '9354',
+      PREMSNAM: 'WESTERING SUN',
+      PREMCITY: 'COLUMBIA',
+      PREMZIP: '21045',
+      CITY: '',
+      ZIPCODE: '',
+    };
+    const output = await transformRow(row);
+    expect(output).not.toBeNull();
+
+    const fields = parseCopyLine(output!);
+    // address constructed from premise fields (lowercased)
+    expect(fields[0]).toBe('9354 westering sun');
+    // city falls back to PREMCITY
+    expect(fields[1]).toBe('COLUMBIA');
+    // zip falls back to PREMZIP
+    expect(fields[2]).toBe('21045');
   });
 
   it('outputs \\N for null fields', async () => {

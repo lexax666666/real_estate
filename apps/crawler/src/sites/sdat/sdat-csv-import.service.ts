@@ -121,6 +121,7 @@ export function parseTraDate(tradate: string | undefined): string | null {
 /** Headers that are mapped to staging columns (excluded from raw_data JSONB) */
 const MAPPED_HEADERS = new Set([
   'ADDRESS', 'CITY', 'ZIPCODE', 'JURSCODE',
+  'PREMSNUM', 'PREMSNAM', 'PREMCITY', 'PREMZIP',
   'OWNNAME1', 'OWNNAME2', 'DESCLU', 'YEARBLT', 'SQFTSTRC',
   'LANDAREA', 'LUOM', 'BLDG_STORY', 'DESCSTYL', 'OOI',
   'LEGAL1', 'LEGAL2', 'LEGAL3', 'ZONING', 'ACCTID',
@@ -176,15 +177,24 @@ export class CsvToCopyTransform extends Transform {
     this._totalRows++;
 
     try {
-      const address = row.ADDRESS?.trim();
+      // Prefer ADDRESS, fall back to PREMSNUM + PREMSNAM (premise address)
+      let address = row.ADDRESS?.trim();
       if (!address) {
-        // Skip rows with no address
+        const premsNum = row.PREMSNUM?.trim();
+        const premsNam = row.PREMSNAM?.trim();
+        if (premsNum && premsNam) {
+          address = `${premsNum} ${premsNam}`;
+        }
+      }
+      if (!address) {
+        // Skip rows with no address at all
         callback();
         return;
       }
 
-      const city = row.CITY?.trim() || null;
-      const zipCode = row.ZIPCODE?.trim() || null;
+      // Prefer CITY, fall back to PREMCITY
+      const city = row.CITY?.trim() || row.PREMCITY?.trim() || null;
+      const zipCode = row.ZIPCODE?.trim() || row.PREMZIP?.trim() || null;
       const county = JURISDICTION_CODES[row.JURSCODE?.trim()] ?? null;
       const ownerName1 = row.OWNNAME1?.trim() || null;
       const ownerName2 = row.OWNNAME2?.trim() || null;
@@ -447,10 +457,13 @@ async function upsertFromStaging(
         s.property_type,
         s.year_built,
         s.square_footage,
-        CASE
-          WHEN s.land_unit = 'A' THEN ROUND(s.land_area * 43560)
-          ELSE ROUND(s.land_area)
-        END AS lot_size,
+        LEAST(
+          CASE
+            WHEN s.land_unit = 'A' THEN ROUND(s.land_area * 43560)
+            ELSE ROUND(s.land_area)
+          END,
+          2147483647
+        ) AS lot_size,
         COALESCE(
           CASE WHEN s.bldg_story > 0 THEN ROUND(s.bldg_story) END,
           (regexp_match(s.desc_style, '(\d+(?:\.\d+)?)\s*Stor(?:y|ies)', 'i'))[1]::numeric
@@ -538,7 +551,7 @@ async function upsertFromStaging(
   }
 
   // Step C: Upsert site_crawl_data
-  logger('  Step C: Upserting site_crawl_data...');
+logger('  Step C: Upserting site_crawl_data...');
   const crawlResult = await client.query(`
     WITH deduped AS (
       SELECT DISTINCT ON (s.address)
