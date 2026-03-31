@@ -1,176 +1,248 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
-  parseCsvRow,
   parseLotSize,
   parseDescStyle,
   parseCoordinates,
   parseTraDate,
-  insertBatch,
   CsvRow,
-  ParsedCsvProperty,
-  ImportStats,
+  CsvToCopyTransform,
   ImportOptions,
 } from '../sdat-csv-import.service';
 
-describe('parseCsvRow', () => {
-  /** Fixture: 8933 Amelung St, Frederick MD — real CSV row */
-  const amelungRow: CsvRow = {
-    X: '-8611425.017',
-    Y: '4769258.7121',
-    OBJECTID: '1263827',
-    JURSCODE: 'FRED',
-    ACCTID: '1107247192',
-    OOI: 'H',
-    RESITYP: 'TH',
-    ADDRESS: '8933 AMELUNG ST',
-    CITY: 'FREDERICK',
-    ZIPCODE: '21704',
-    OWNNAME1: 'CHEN KEQIANG',
-    OWNNAME2: 'WANG HONGDI',
-    DESCLU: 'Town House',
-    YEARBLT: '2008',
-    SQFTSTRC: '1868',
-    LANDAREA: '1592',
-    LUOM: 'S',
-    BLDG_STORY: '0',
-    DESCSTYL: 'STRY Townhouse-End Unit 3 Story No Basement',
-    LEGAL1: 'IMPSLOT 1287 SECT M-1B',
-    LEGAL2: '1,592 SQ. FT.',
-    LEGAL3: 'VILLAGES OF URBANA',
-    ZONING: '',
-    TRADATE: '20170104',
-    CONSIDR1: '333000',
-    GRNTNAM1: 'KONAI  KELLY L',
-    CONVEY1: '1',
-    NFMLNDVL: '170000',
-    NFMIMPVL: '385300',
-    NFMTTLVL: '555300',
-    DESCSUBD: 'Villages of Urbana',
-  };
+/** Fixture: 8933 Amelung St, Frederick MD — real CSV row */
+const amelungRow: CsvRow = {
+  X: '-8611425.017',
+  Y: '4769258.7121',
+  OBJECTID: '1263827',
+  JURSCODE: 'FRED',
+  ACCTID: '1107247192',
+  OOI: 'H',
+  RESITYP: 'TH',
+  ADDRESS: '8933 AMELUNG ST',
+  CITY: 'FREDERICK',
+  ZIPCODE: '21704',
+  OWNNAME1: 'CHEN KEQIANG',
+  OWNNAME2: 'WANG HONGDI',
+  DESCLU: 'Town House',
+  YEARBLT: '2008',
+  SQFTSTRC: '1868',
+  LANDAREA: '1592',
+  LUOM: 'S',
+  BLDG_STORY: '0',
+  DESCSTYL: 'STRY Townhouse-End Unit 3 Story No Basement',
+  LEGAL1: 'IMPSLOT 1287 SECT M-1B',
+  LEGAL2: '1,592 SQ. FT.',
+  LEGAL3: 'VILLAGES OF URBANA',
+  ZONING: '',
+  TRADATE: '20170104',
+  CONSIDR1: '333000',
+  GRNTNAM1: 'KONAI  KELLY L',
+  CONVEY1: '1',
+  NFMLNDVL: '170000',
+  NFMIMPVL: '385300',
+  NFMTTLVL: '555300',
+  DESCSUBD: 'Villages of Urbana',
+};
 
-  it('parses 8933 Amelung ST row correctly', () => {
-    const result = parseCsvRow(amelungRow);
-    expect(result).not.toBeNull();
-
-    expect(result!.address).toBe('8933 AMELUNG ST');
-    expect(result!.city).toBe('FREDERICK');
-    expect(result!.state).toBe('MD');
-    expect(result!.zipCode).toBe('21704');
-    expect(result!.county).toBe('FREDERICK');
-    expect(result!.ownerNames).toBe('CHEN KEQIANG, WANG HONGDI');
-    expect(result!.propertyType).toBe('Town House');
-    expect(result!.yearBuilt).toBe(2008);
-    expect(result!.squareFootage).toBe(1868);
-    expect(result!.lotSize).toBe(1592); // LUOM=S → use as-is
-    expect(result!.stories).toBe(3); // from DESCSTYL (BLDG_STORY=0 → fallback)
-    expect(result!.basement).toBe('No');
-    expect(result!.ownerOccupied).toBe(true); // OOI=H
-    expect(result!.legalDescription).toBe(
-      'IMPSLOT 1287 SECT M-1B 1,592 SQ. FT. VILLAGES OF URBANA',
-    );
-    expect(result!.assessorId).toBe('1107247192');
-    expect(result!.lastSaleDate).toBe('2017-01-04');
-    expect(result!.lastSalePrice).toBe(333000);
-    expect(result!.subdivision).toBe('Villages of Urbana');
-  });
-
-  it('parses tax assessment correctly', () => {
-    const result = parseCsvRow(amelungRow);
-    expect(result!.taxAssessment).toEqual({
-      land: 170000,
-      improvements: 385300,
-      total: 555300,
+/** Helper to push a row through CsvToCopyTransform and get the output line */
+function transformRow(row: CsvRow): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const transform = new CsvToCopyTransform();
+    let output = '';
+    transform.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
     });
-  });
-
-  it('parses sale history correctly', () => {
-    const result = parseCsvRow(amelungRow);
-    expect(result!.saleHistory).toEqual({
-      date: '2017-01-04',
-      price: 333000,
-      seller: 'KONAI  KELLY L',
-      documentType: '1',
+    transform.on('end', () => {
+      resolve(output || null);
     });
+    transform.on('error', reject);
+    transform.write(row);
+    transform.end();
+  });
+}
+
+/** Parse a COPY output line into field array */
+function parseCopyLine(line: string): string[] {
+  // Remove trailing newline and split by tab
+  return line.trimEnd().split('\t');
+}
+
+describe('CsvToCopyTransform', () => {
+  it('transforms Amelung row into tab-delimited COPY line', async () => {
+    const output = await transformRow(amelungRow);
+    expect(output).not.toBeNull();
+
+    const fields = parseCopyLine(output!);
+    // Should have 30 fields (matching STAGING_COLUMNS count)
+    expect(fields).toHaveLength(30);
+
+    // address (lowercased)
+    expect(fields[0]).toBe('8933 amelung st');
+    // city
+    expect(fields[1]).toBe('FREDERICK');
+    // zip_code
+    expect(fields[2]).toBe('21704');
+    // county (resolved from JURSCODE)
+    expect(fields[3]).toBe('FREDERICK');
+    // owner_name_1
+    expect(fields[4]).toBe('CHEN KEQIANG');
+    // owner_name_2
+    expect(fields[5]).toBe('WANG HONGDI');
+    // property_type
+    expect(fields[6]).toBe('Town House');
+    // year_built
+    expect(fields[7]).toBe('2008');
+    // square_footage
+    expect(fields[8]).toBe('1868');
+    // land_area
+    expect(fields[9]).toBe('1592');
+    // land_unit
+    expect(fields[10]).toBe('S');
+    // bldg_story (0 → null)
+    expect(fields[11]).toBe('\\N');
+    // desc_style
+    expect(fields[12]).toBe('STRY Townhouse-End Unit 3 Story No Basement');
+    // ooi
+    expect(fields[13]).toBe('H');
   });
 
-  it('parses coordinates from Web Mercator to WGS84', () => {
-    const result = parseCsvRow(amelungRow);
-    // 8933 Amelung is near Frederick MD: ~39.35°N, ~77.38°W
-    const lat = parseFloat(result!.latitude!);
-    const lon = parseFloat(result!.longitude!);
+  it('converts coordinates from Web Mercator to WGS84', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+
+    // latitude (field 19), longitude (field 20)
+    const lat = parseFloat(fields[19]);
+    const lon = parseFloat(fields[20]);
     expect(lat).toBeGreaterThan(39.0);
     expect(lat).toBeLessThan(40.0);
     expect(lon).toBeGreaterThan(-78.0);
     expect(lon).toBeLessThan(-77.0);
   });
 
-  it('returns null for row with no address', () => {
-    const result = parseCsvRow({ ...amelungRow, ADDRESS: '' });
-    expect(result).toBeNull();
+  it('converts sale date from YYYYMMDD to YYYY-MM-DD', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // sale_date (field 21)
+    expect(fields[21]).toBe('2017-01-04');
   });
 
-  it('handles missing owner2', () => {
-    const result = parseCsvRow({ ...amelungRow, OWNNAME2: '' });
-    expect(result!.ownerNames).toBe('CHEN KEQIANG');
+  it('includes sale price and seller', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // sale_price (field 22)
+    expect(fields[22]).toBe('333000');
+    // seller (field 23)
+    expect(fields[23]).toBe('KONAI  KELLY L');
   });
 
-  it('handles both owners missing', () => {
-    const result = parseCsvRow({
-      ...amelungRow,
+  it('includes tax assessment values', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // nfm_land_value (field 25)
+    expect(fields[25]).toBe('170000');
+    // nfm_improvement_value (field 26)
+    expect(fields[26]).toBe('385300');
+    // nfm_total_value (field 27)
+    expect(fields[27]).toBe('555300');
+  });
+
+  it('skips rows with no ADDRESS', async () => {
+    const output = await transformRow({ ...amelungRow, ADDRESS: '' });
+    expect(output).toBeNull();
+  });
+
+  it('outputs \\N for null fields', async () => {
+    const row: CsvRow = {
+      ADDRESS: '100 TEST ST',
+      CITY: '',
+      ZIPCODE: '',
+      JURSCODE: 'ZZZZ', // unknown → null county
       OWNNAME1: '',
       OWNNAME2: '',
-    });
-    expect(result!.ownerNames).toBeNull();
-  });
-
-  it('sets yearBuilt to null for 0000', () => {
-    const result = parseCsvRow({ ...amelungRow, YEARBLT: '0000' });
-    expect(result!.yearBuilt).toBeNull();
-  });
-
-  it('sets squareFootage to null for 0', () => {
-    const result = parseCsvRow({ ...amelungRow, SQFTSTRC: '0' });
-    expect(result!.squareFootage).toBeNull();
-  });
-
-  it('handles OOI=N as not owner-occupied', () => {
-    const result = parseCsvRow({ ...amelungRow, OOI: 'N' });
-    expect(result!.ownerOccupied).toBe(false);
-  });
-
-  it('handles OOI=D as not owner-occupied', () => {
-    const result = parseCsvRow({ ...amelungRow, OOI: 'D' });
-    expect(result!.ownerOccupied).toBe(false);
-  });
-
-  it('sets ownerOccupied to null for unknown OOI', () => {
-    const result = parseCsvRow({ ...amelungRow, OOI: '' });
-    expect(result!.ownerOccupied).toBeNull();
-  });
-
-  it('returns null saleHistory when no sale date and price', () => {
-    const row = { ...amelungRow, TRADATE: '00000000', CONSIDR1: '0' };
-    const result = parseCsvRow(row);
-    expect(result!.saleHistory).toBeNull();
-    expect(result!.lastSaleDate).toBeNull();
-    expect(result!.lastSalePrice).toBeNull();
-  });
-
-  it('returns null taxAssessment when total is 0', () => {
-    const row = {
-      ...amelungRow,
+      DESCLU: '',
+      YEARBLT: '0',
+      SQFTSTRC: '0',
+      LANDAREA: '0',
+      LUOM: 'S',
+      BLDG_STORY: '0',
+      DESCSTYL: '',
+      OOI: '',
+      LEGAL1: '',
+      LEGAL2: '',
+      LEGAL3: '',
+      ZONING: '',
+      ACCTID: '',
+      X: '0',
+      Y: '0',
+      TRADATE: '',
+      CONSIDR1: '0',
+      GRNTNAM1: '',
+      CONVEY1: '',
       NFMLNDVL: '0',
       NFMIMPVL: '0',
       NFMTTLVL: '0',
+      DESCSUBD: '',
     };
-    const result = parseCsvRow(row);
-    expect(result!.taxAssessment).toBeNull();
+
+    const output = await transformRow(row);
+    expect(output).not.toBeNull();
+
+    const fields = parseCopyLine(output!);
+    // address is set
+    expect(fields[0]).toBe('100 test st');
+    // city is null
+    expect(fields[1]).toBe('\\N');
+    // county is null (unknown JURSCODE)
+    expect(fields[3]).toBe('\\N');
+    // year_built is null (0)
+    expect(fields[7]).toBe('\\N');
   });
 
-  it('stores raw CSV data', () => {
-    const result = parseCsvRow(amelungRow);
-    expect(result!.rawData.ACCTID).toBe('1107247192');
-    expect(result!.rawData.JURSCODE).toBe('FRED');
+  it('stores only unmapped fields in raw_data', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // raw_data is the last field (field 29)
+    const rawData = JSON.parse(fields[29]);
+    // OBJECTID and RESITYP should be in raw_data (not mapped)
+    expect(rawData.OBJECTID).toBe('1263827');
+    expect(rawData.RESITYP).toBe('TH');
+    // Mapped fields should NOT be in raw_data
+    expect(rawData.ADDRESS).toBeUndefined();
+    expect(rawData.CITY).toBeUndefined();
+    expect(rawData.ZIPCODE).toBeUndefined();
+  });
+
+  it('escapes tabs and newlines in values', async () => {
+    const row: CsvRow = {
+      ...amelungRow,
+      OWNNAME1: 'NAME\tWITH\tTABS',
+      OWNNAME2: 'NAME\nWITH\nNEWLINES',
+    };
+    const output = await transformRow(row);
+    const fields = parseCopyLine(output!);
+    // tabs/newlines should be escaped
+    expect(fields[4]).toBe('NAME\\tWITH\\tTABS');
+    expect(fields[5]).toBe('NAME\\nWITH\\nNEWLINES');
+  });
+
+  it('tracks totalRows and errorCount via getStats()', async () => {
+    const transform = new CsvToCopyTransform();
+    const chunks: string[] = [];
+    transform.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+
+    await new Promise<void>((resolve, reject) => {
+      transform.write(amelungRow);
+      transform.write({ ...amelungRow, ADDRESS: '' }); // skipped
+      transform.write({ ...amelungRow, ADDRESS: '456 OAK ST' });
+      transform.end(() => resolve());
+      transform.on('error', reject);
+    });
+
+    const stats = transform.getStats();
+    expect(stats.totalRows).toBe(3);
+    expect(stats.errorCount).toBe(0);
+    // 2 rows had addresses, so 2 output chunks
+    expect(chunks).toHaveLength(2);
   });
 });
 
@@ -328,217 +400,44 @@ describe('parseTraDate', () => {
   });
 });
 
-describe('JURISDICTION_CODES mapping', () => {
-  it('maps all 24 Maryland jurisdictions', () => {
-    const result1 = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'FRED' });
-    expect(result1!.county).toBe('FREDERICK');
+describe('JURISDICTION_CODES mapping via CsvToCopyTransform', () => {
+  it('maps all 24 Maryland jurisdictions', async () => {
+    const fredRow = { ...createMinimalRow(), JURSCODE: 'FRED' };
+    const output = await transformRow(fredRow);
+    expect(parseCopyLine(output!)[3]).toBe('FREDERICK');
 
-    const result2 = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'MONT' });
-    expect(result2!.county).toBe('MONTGOMERY');
+    const montRow = { ...createMinimalRow(), JURSCODE: 'MONT' };
+    const output2 = await transformRow(montRow);
+    expect(parseCopyLine(output2!)[3]).toBe('MONTGOMERY');
 
-    const result3 = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'BACI' });
-    expect(result3!.county).toBe('BALTIMORE CITY');
+    const baciRow = { ...createMinimalRow(), JURSCODE: 'BACI' };
+    const output3 = await transformRow(baciRow);
+    expect(parseCopyLine(output3!)[3]).toBe('BALTIMORE CITY');
 
-    const result4 = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'PRIN' });
-    expect(result4!.county).toBe("PRINCE GEORGE'S");
+    const prinRow = { ...createMinimalRow(), JURSCODE: 'PRIN' };
+    const output4 = await transformRow(prinRow);
+    expect(parseCopyLine(output4!)[3]).toBe("PRINCE GEORGE'S");
 
-    const result5 = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'ANNE' });
-    expect(result5!.county).toBe('ANNE ARUNDEL');
+    const anneRow = { ...createMinimalRow(), JURSCODE: 'ANNE' };
+    const output5 = await transformRow(anneRow);
+    expect(parseCopyLine(output5!)[3]).toBe('ANNE ARUNDEL');
   });
 
-  it('returns null for unknown JURSCODE', () => {
-    const result = parseCsvRow({ ...createMinimalRow(), JURSCODE: 'ZZZZ' });
-    expect(result!.county).toBeNull();
-  });
-});
-
-describe('insertBatch', () => {
-  function createParsedProperty(overrides: Partial<ParsedCsvProperty> = {}): ParsedCsvProperty {
-    return {
-      address: '123 TEST ST',
-      city: 'TEST CITY',
-      state: 'MD',
-      zipCode: '12345',
-      county: 'FREDERICK',
-      ownerNames: null,
-      propertyType: null,
-      yearBuilt: null,
-      squareFootage: null,
-      lotSize: null,
-      stories: null,
-      basement: null,
-      ownerOccupied: null,
-      legalDescription: null,
-      zoning: null,
-      assessorId: null,
-      latitude: null,
-      longitude: null,
-      lastSaleDate: null,
-      lastSalePrice: null,
-      subdivision: null,
-      taxAssessment: null,
-      saleHistory: null,
-      rawData: { ADDRESS: '123 TEST ST' },
-      ...overrides,
-    };
-  }
-
-  function createStats(): ImportStats {
-    return {
-      totalRows: 0,
-      inserted: 0,
-      updated: 0,
-      skipped: 0,
-      errors: 0,
-      elapsedMs: 0,
-    };
-  }
-
-  function createMockDb() {
-    const returningFn = vi.fn().mockResolvedValue([
-      { id: 1, address: '123 test st', isNew: true },
-    ]);
-    const onConflictDoUpdateFn = vi.fn().mockReturnValue({ returning: returningFn });
-    const valuesFn = vi.fn().mockReturnValue({ onConflictDoUpdate: onConflictDoUpdateFn });
-    const insertFn = vi.fn().mockReturnValue({ values: valuesFn });
-
-    // For sale_history select query
-    const whereFn = vi.fn().mockResolvedValue([]);
-    const fromFn = vi.fn().mockReturnValue({ where: whereFn });
-    const selectFn = vi.fn().mockReturnValue({ from: fromFn });
-
-    const db = {
-      insert: insertFn,
-      select: selectFn,
-    } as any;
-
-    return {
-      db,
-      insertFn,
-      valuesFn,
-      onConflictDoUpdateFn,
-      returningFn,
-      selectFn,
-    };
-  }
-
-  it('calls insert with bulk values for properties', async () => {
-    const { db, insertFn, valuesFn } = createMockDb();
-    const stats = createStats();
-    const batch = [createParsedProperty()];
-
-    await insertBatch(db, batch, stats);
-
-    expect(insertFn).toHaveBeenCalled();
-    // First call should be properties insert
-    const firstCallValues = valuesFn.mock.calls[0][0];
-    expect(firstCallValues).toBeInstanceOf(Array);
-    expect(firstCallValues[0].address).toBe('123 test st');
-  });
-
-  it('tracks inserted count from upsert returning', async () => {
-    const { db, returningFn } = createMockDb();
-    returningFn.mockResolvedValueOnce([
-      { id: 1, address: '123 test st', isNew: true },
-      { id: 2, address: '456 oak st', isNew: false },
-    ]);
-    const stats = createStats();
-    const batch = [
-      createParsedProperty({ address: '123 TEST ST' }),
-      createParsedProperty({ address: '456 OAK ST' }),
-    ];
-
-    await insertBatch(db, batch, stats);
-
-    expect(stats.inserted).toBe(1);
-    expect(stats.updated).toBe(1);
-  });
-
-  it('tracks skipped count when rows not returned from upsert', async () => {
-    const { db, returningFn } = createMockDb();
-    // Only 1 of 2 rows returned = 1 skipped (already enriched by md-sdat)
-    returningFn.mockResolvedValueOnce([
-      { id: 1, address: '123 test st', isNew: true },
-    ]);
-    const stats = createStats();
-    const batch = [
-      createParsedProperty({ address: '123 TEST ST' }),
-      createParsedProperty({ address: '999 SKIPPED AVE' }),
-    ];
-
-    await insertBatch(db, batch, stats);
-
-    expect(stats.inserted).toBe(1);
-    expect(stats.skipped).toBe(1);
-  });
-
-  it('deduplicates addresses within a batch', async () => {
-    const { db, valuesFn, returningFn } = createMockDb();
-    returningFn.mockResolvedValueOnce([
-      { id: 1, address: '123 test st', isNew: true },
-    ]);
-    const stats = createStats();
-    // Same address twice in one batch
-    const batch = [
-      createParsedProperty({ address: '123 TEST ST', city: 'FIRST' }),
-      createParsedProperty({ address: '123 TEST ST', city: 'SECOND' }),
-    ];
-
-    await insertBatch(db, batch, stats);
-
-    // Should only insert 1 row (deduped, last wins)
-    const firstCallValues = valuesFn.mock.calls[0][0];
-    expect(firstCallValues).toHaveLength(1);
-    expect(firstCallValues[0].city).toBe('SECOND');
-  });
-
-  it('handles batch errors gracefully', async () => {
-    const { db } = createMockDb();
-    // Make insert throw
-    db.insert = vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoUpdate: vi.fn().mockReturnValue({
-          returning: vi.fn().mockRejectedValue(new Error('DB error')),
-        }),
-      }),
-    });
-    const stats = createStats();
-    const batch = [createParsedProperty(), createParsedProperty({ address: '456 OAK ST' })];
-
-    await insertBatch(db, batch, stats);
-
-    expect(stats.errors).toBe(2); // entire batch counted as errors
-  });
-
-  it('skips related inserts when upsert returns empty', async () => {
-    const { db, insertFn, returningFn } = createMockDb();
-    // All rows skipped (md-sdat enriched)
-    returningFn.mockResolvedValueOnce([]);
-    const stats = createStats();
-    const batch = [
-      createParsedProperty({
-        taxAssessment: { land: 100, improvements: 200, total: 300 },
-      }),
-    ];
-
-    await insertBatch(db, batch, stats);
-
-    // Only 1 insert call (properties), no site_crawl_data/tax/sale inserts
-    expect(insertFn).toHaveBeenCalledTimes(1);
-    expect(stats.skipped).toBe(1);
+  it('returns \\N for unknown JURSCODE', async () => {
+    const row = { ...createMinimalRow(), JURSCODE: 'ZZZZ' };
+    const output = await transformRow(row);
+    expect(parseCopyLine(output!)[3]).toBe('\\N');
   });
 });
 
 describe('ImportOptions', () => {
-  it('ImportOptions interface accepts batch size and dry run', () => {
-    const opts: ImportOptions = { batchSize: 100, dryRun: true };
-    expect(opts.batchSize).toBe(100);
+  it('ImportOptions interface accepts dry run', () => {
+    const opts: ImportOptions = { dryRun: true };
     expect(opts.dryRun).toBe(true);
   });
 
   it('ImportOptions defaults are undefined', () => {
     const opts: ImportOptions = {};
-    expect(opts.batchSize).toBeUndefined();
     expect(opts.dryRun).toBeUndefined();
   });
 });

@@ -143,6 +143,41 @@ export const crawlJobs = pgTable('crawl_jobs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// UNLOGGED staging table for CSV bulk import (COPY FROM STDIN)
+export const stagingParcels = pgTable('staging_parcels', {
+  rowNum: serial('row_num').primaryKey(),
+  address: varchar('address').notNull(),
+  city: varchar('city'),
+  zipCode: varchar('zip_code', { length: 10 }),
+  county: varchar('county'),
+  ownerName1: varchar('owner_name_1'),
+  ownerName2: varchar('owner_name_2'),
+  propertyType: varchar('property_type'),
+  yearBuilt: integer('year_built'),
+  squareFootage: integer('square_footage'),
+  landArea: numeric('land_area', { precision: 14, scale: 4 }),
+  landUnit: varchar('land_unit', { length: 2 }),
+  bldgStory: numeric('bldg_story', { precision: 5, scale: 1 }),
+  descStyle: varchar('desc_style'),
+  ooi: varchar('ooi', { length: 2 }),
+  legal1: varchar('legal1'),
+  legal2: varchar('legal2'),
+  legal3: varchar('legal3'),
+  zoning: varchar('zoning'),
+  assessorId: varchar('assessor_id'),
+  latitude: numeric('latitude', { precision: 10, scale: 7 }),
+  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  saleDate: varchar('sale_date', { length: 10 }),
+  salePrice: integer('sale_price'),
+  seller: varchar('seller'),
+  documentType: varchar('document_type'),
+  nfmLandValue: numeric('nfm_land_value', { precision: 12, scale: 2 }),
+  nfmImprovementValue: numeric('nfm_improvement_value', { precision: 12, scale: 2 }),
+  nfmTotalValue: numeric('nfm_total_value', { precision: 12, scale: 2 }),
+  subdivision: varchar('subdivision'),
+  rawData: jsonb('raw_data'),
+});
+
 // Relations
 export const propertiesRelations = relations(properties, ({ many }) => ({
   taxAssessments: many(taxAssessments),

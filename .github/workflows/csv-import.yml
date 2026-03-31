@@ -12,11 +12,6 @@ on:
         required: true
         default: 'production'
         type: string
-      batch_size:
-        description: 'Rows per SQL batch'
-        required: false
-        default: '500'
-        type: string
       dry_run:
         description: 'Dry run (skip DB writes)'
         required: false
@@ -90,7 +85,6 @@ jobs:
           pnpm dlx tsx apps/crawler/src/sites/sdat/sdat-csv-import.command.ts /tmp/md-parcels.csv
         env:
           POSTGRES_URL: ${{ steps.db.outputs.url }}
-          IMPORT_BATCH_SIZE: ${{ inputs.batch_size }}
           IMPORT_DRY_RUN: ${{ inputs.dry_run }}
 
       # --- Cleanup Neon branch (disabled for now to allow post-import inspection) ---

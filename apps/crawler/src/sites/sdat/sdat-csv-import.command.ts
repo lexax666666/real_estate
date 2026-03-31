@@ -8,7 +8,6 @@
  * Requires POSTGRES_URL environment variable to be set.
  *
  * Optional env vars (for CI / GitHub Actions):
- *   IMPORT_BATCH_SIZE  — rows per SQL batch (default 500)
  *   IMPORT_DRY_RUN     — "true" to skip DB writes (default false)
  *   GITHUB_STEP_SUMMARY — path to summary file (set automatically by GitHub Actions)
  */
@@ -16,9 +15,6 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
 import { stat, appendFile } from 'fs/promises';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from '../../../../api/src/db/schema';
 import { importCsv, ImportStats, ImportOptions } from './sdat-csv-import.service';
 
 async function main(): Promise<void> {
@@ -47,21 +43,14 @@ async function main(): Promise<void> {
 
   // Read import options from environment
   const options: ImportOptions = {};
-  if (process.env.IMPORT_BATCH_SIZE) {
-    options.batchSize = parseInt(process.env.IMPORT_BATCH_SIZE, 10);
-  }
   if (process.env.IMPORT_DRY_RUN === 'true') {
     options.dryRun = true;
   }
 
-  console.log('Connecting to database...');
-  const sqlClient = neon(postgresUrl);
-  const db = drizzle(sqlClient, { schema });
-
-  console.log('Starting CSV import...');
+  console.log('Starting CSV import (streaming COPY + staging upserts)...');
   console.log('---');
 
-  const stats: ImportStats = await importCsv(db, absolutePath, (msg) => {
+  const stats: ImportStats = await importCsv(postgresUrl, absolutePath, (msg) => {
     console.log(`[import] ${msg}`);
   }, options);
 
@@ -96,7 +85,7 @@ async function main(): Promise<void> {
 | Elapsed | ${(stats.elapsedMs / 1000).toFixed(1)}s |
 | Rate | ${rate}/sec |
 | File size | ${fileSizeMB} MB |
-| Batch size | ${options.batchSize ?? 500} |
+| Method | Streaming COPY + staging upserts |
 `;
     await appendFile(summaryPath, summary);
   }
