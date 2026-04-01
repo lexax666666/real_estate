@@ -15,14 +15,14 @@ export class AddressParserService {
     const trimmed = input.trim().toLowerCase();
     const parsed = parseLocation(trimmed);
 
-    // Build street from: number + prefix + street + type
-    // Exclude suffix (direction like N/NW) — it's unreliable with free-text input
-    // and city/state/zip columns handle disambiguation
+    this.applyExceptionCases(parsed);
+
     const streetParts = [
       parsed.number,
       parsed.prefix,
       parsed.street,
       parsed.type,
+      parsed.suffix,
     ]
       .filter(Boolean)
       .map((p) => p!.toLowerCase());
@@ -41,12 +41,8 @@ export class AddressParserService {
     const state = parsed.state?.toLowerCase() || null;
     const zip = parsed.zip || null;
 
-    // Build full address for RentCast API (include suffix for API accuracy)
-    const fullStreetParts = [...streetParts];
-    if (parsed.suffix) {
-      fullStreetParts.push(parsed.suffix.toLowerCase());
-    }
-    const fullStreet = fullStreetParts.join(' ');
+    // Build full address for RentCast API
+    const fullStreet = streetParts.join(' ');
 
     const fullParts = [fullStreet];
     if (city) fullParts.push(city);
@@ -61,5 +57,17 @@ export class AddressParserService {
       zip,
       fullAddress,
     };
+  }
+
+  private applyExceptionCases(parsed: ReturnType<typeof parseLocation>): void {
+    // "0 maxwell ln north east md 21901" — parse-address reads "north" as
+    // suffix "N" and city as "east". Correct to city "north east", no suffix.
+    if (
+      parsed.city?.toLowerCase() === 'east' &&
+      parsed.suffix?.toLowerCase() === 'n'
+    ) {
+      parsed.city = 'north east';
+      parsed.suffix = undefined as any;
+    }
   }
 }

@@ -25,13 +25,25 @@ describe('AddressParserService', () => {
       expect(result.zip).toBeNull();
     });
 
-    it('should handle the maxwell ln example — street excludes direction suffix', () => {
+    it('should handle the maxwell ln exception — suffix "N" + city "east" → city "north east"', () => {
       const result = service.parseAddress('0 maxwell ln north east md 21901');
-      // "north" is parsed as direction suffix "N" by parse-address;
-      // we exclude suffix from streetAddress for consistent matching
       expect(result.streetAddress).toBe('0 maxwell ln');
+      expect(result.city).toBe('north east');
       expect(result.state).toBe('md');
       expect(result.zip).toBe('21901');
+    });
+
+    it('should handle comma-separated maxwell ln — parse-address gets it right natively', () => {
+      const result = service.parseAddress('0 maxwell ln, north east, md 21901');
+      expect(result.streetAddress).toBe('0 maxwell ln');
+      expect(result.city).toBe('north east');
+      expect(result.state).toBe('md');
+      expect(result.zip).toBe('21901');
+    });
+
+    it('should include direction suffix in streetAddress', () => {
+      const result = service.parseAddress('1 2nd ave s');
+      expect(result.streetAddress).toBe('1 2nd ave s');
     });
 
     it('should handle lowercase input', () => {
@@ -62,10 +74,10 @@ describe('AddressParserService', () => {
       expect(result.streetAddress).toBe('123 main st');
     });
 
-    it('should build fullAddress with suffix for RentCast API', () => {
+    it('should include suffix in both streetAddress and fullAddress', () => {
       const result = service.parseAddress('200 Main St NW Washington DC 20001');
-      // fullAddress includes the suffix for API accuracy
-      expect(result.fullAddress).toContain('nw');
+      expect(result.streetAddress).toBe('200 main st nw');
+      expect(result.fullAddress).toContain('200 main st nw');
       expect(result.fullAddress).toContain('washington');
       expect(result.fullAddress).toContain('dc');
       expect(result.fullAddress).toContain('20001');
