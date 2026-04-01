@@ -118,10 +118,41 @@ export function parseTraDate(tradate: string | undefined): string | null {
 
 // --- COPY stream support ---
 
+/**
+ * Build a street address from CSV row columns with fallback chain:
+ * 1. ADDRESS column (if present)
+ * 2. STRT* columns: STRTNUM + STRTDIR + STRTNAM + STRTTYP + STRTSFX
+ * 3. PREMS* columns: PREMSNUM + PREMSDIR + PREMSNAM + PREMSTYP
+ */
+export function buildAddress(row: CsvRow): string | null {
+  const address = row.ADDRESS?.trim();
+  if (address) return address;
+
+  const strtParts = [
+    row.STRTNUM?.trim(),
+    row.STRTDIR?.trim(),
+    row.STRTNAM?.trim(),
+    row.STRTTYP?.trim(),
+    row.STRTSFX?.trim(),
+  ].filter(Boolean);
+  if (strtParts.length >= 2) return strtParts.join(' ');
+
+  const premsParts = [
+    row.PREMSNUM?.trim(),
+    row.PREMSDIR?.trim(),
+    row.PREMSNAM?.trim(),
+    row.PREMSTYP?.trim(),
+  ].filter(Boolean);
+  if (premsParts.length >= 2) return premsParts.join(' ');
+
+  return null;
+}
+
 /** Headers that are mapped to staging columns (excluded from raw_data JSONB) */
 const MAPPED_HEADERS = new Set([
   'ADDRESS', 'CITY', 'ZIPCODE', 'JURSCODE',
-  'PREMSNUM', 'PREMSNAM', 'PREMCITY', 'PREMZIP',
+  'STRTNUM', 'STRTDIR', 'STRTNAM', 'STRTTYP', 'STRTSFX',
+  'PREMSNUM', 'PREMSDIR', 'PREMSNAM', 'PREMSTYP', 'PREMCITY', 'PREMZIP',
   'OWNNAME1', 'OWNNAME2', 'DESCLU', 'YEARBLT', 'SQFTSTRC',
   'LANDAREA', 'LUOM', 'BLDG_STORY', 'DESCSTYL', 'OOI',
   'LEGAL1', 'LEGAL2', 'LEGAL3', 'ZONING', 'ACCTID',
@@ -177,15 +208,7 @@ export class CsvToCopyTransform extends Transform {
     this._totalRows++;
 
     try {
-      // Prefer ADDRESS, fall back to PREMSNUM + PREMSNAM (premise address)
-      let address = row.ADDRESS?.trim();
-      if (!address) {
-        const premsNum = row.PREMSNUM?.trim();
-        const premsNam = row.PREMSNAM?.trim();
-        if (premsNum && premsNam) {
-          address = `${premsNum} ${premsNam}`;
-        }
-      }
+      const address = buildAddress(row);
       if (!address) {
         // Skip rows with no address at all
         callback();
@@ -338,7 +361,7 @@ export async function importCsv(
     readStream.pipe(csvParser);
     for await (const row of csvParser) {
       stats.totalRows++;
-      const address = (row as CsvRow).ADDRESS?.trim();
+      const address = buildAddress(row as CsvRow);
       if (address) {
         stats.inserted++;
       } else {

@@ -4,6 +4,7 @@ import {
   parseDescStyle,
   parseCoordinates,
   parseTraDate,
+  buildAddress,
   CsvRow,
   CsvToCopyTransform,
   ImportOptions,
@@ -146,32 +147,74 @@ describe('CsvToCopyTransform', () => {
     expect(fields[27]).toBe('555300');
   });
 
-  it('skips rows with no ADDRESS and no PREMSNUM/PREMSNAM', async () => {
-    const output = await transformRow({ ...amelungRow, ADDRESS: '', PREMSNUM: '', PREMSNAM: '' });
+  it('skips rows with no address columns at all', async () => {
+    const row = { ...createMinimalRow(), ADDRESS: '' };
+    const output = await transformRow(row);
     expect(output).toBeNull();
   });
 
-  it('falls back to PREMSNUM + PREMSNAM when ADDRESS is empty', async () => {
+  it('falls back to STRT* columns when ADDRESS is empty', async () => {
     const row: CsvRow = {
-      ...amelungRow,
+      ...createMinimalRow(),
       ADDRESS: '',
-      PREMSNUM: '9354',
-      PREMSNAM: 'WESTERING SUN',
-      PREMCITY: 'COLUMBIA',
-      PREMZIP: '21045',
+      STRTNUM: '8931',
+      STRTNAM: 'AMELUNG',
+      STRTTYP: 'ST',
+    };
+    const output = await transformRow(row);
+    expect(output).not.toBeNull();
+    const fields = parseCopyLine(output!);
+    expect(fields[0]).toBe('8931 amelung st');
+  });
+
+  it('includes STRTDIR in address when present', async () => {
+    const row: CsvRow = {
+      ...createMinimalRow(),
+      ADDRESS: '',
+      STRTNUM: '100',
+      STRTDIR: 'N',
+      STRTNAM: 'MAIN',
+      STRTTYP: 'ST',
+    };
+    const output = await transformRow(row);
+    expect(output).not.toBeNull();
+    const fields = parseCopyLine(output!);
+    expect(fields[0]).toBe('100 n main st');
+  });
+
+  it('falls back to PREMS* when ADDRESS and STRT* are empty', async () => {
+    const row: CsvRow = {
+      ...createMinimalRow(),
+      ADDRESS: '',
+      PREMSNUM: '8931',
+      PREMSNAM: 'AMELUNG',
+      PREMSTYP: 'ST',
+      PREMCITY: 'FREDERICK',
+      PREMZIP: '21704',
       CITY: '',
       ZIPCODE: '',
     };
     const output = await transformRow(row);
     expect(output).not.toBeNull();
-
     const fields = parseCopyLine(output!);
-    // address constructed from premise fields (lowercased)
-    expect(fields[0]).toBe('9354 westering sun');
-    // city falls back to PREMCITY
-    expect(fields[1]).toBe('COLUMBIA');
-    // zip falls back to PREMZIP
-    expect(fields[2]).toBe('21045');
+    expect(fields[0]).toBe('8931 amelung st');
+    expect(fields[1]).toBe('FREDERICK');
+    expect(fields[2]).toBe('21704');
+  });
+
+  it('falls back city/zip to PREMCITY/PREMZIP', async () => {
+    const row: CsvRow = {
+      ...createMinimalRow(),
+      CITY: '',
+      ZIPCODE: '',
+      PREMCITY: 'FREDERICK',
+      PREMZIP: '21704',
+    };
+    const output = await transformRow(row);
+    expect(output).not.toBeNull();
+    const fields = parseCopyLine(output!);
+    expect(fields[1]).toBe('FREDERICK');
+    expect(fields[2]).toBe('21704');
   });
 
   it('outputs \\N for null fields', async () => {
@@ -266,6 +309,44 @@ describe('CsvToCopyTransform', () => {
     expect(stats.errorCount).toBe(0);
     // 2 rows had addresses, so 2 output chunks
     expect(chunks).toHaveLength(2);
+  });
+});
+
+describe('buildAddress', () => {
+  it('returns ADDRESS when present', () => {
+    expect(buildAddress({ ADDRESS: '8933 AMELUNG ST' })).toBe('8933 AMELUNG ST');
+  });
+
+  it('builds from STRT* when ADDRESS is empty', () => {
+    expect(buildAddress({ ADDRESS: '', STRTNUM: '8931', STRTNAM: 'AMELUNG', STRTTYP: 'ST' }))
+      .toBe('8931 AMELUNG ST');
+  });
+
+  it('includes STRTDIR and STRTSFX', () => {
+    expect(buildAddress({ ADDRESS: '', STRTNUM: '100', STRTDIR: 'N', STRTNAM: 'MAIN', STRTTYP: 'ST', STRTSFX: 'W' }))
+      .toBe('100 N MAIN ST W');
+  });
+
+  it('builds from PREMS* when ADDRESS and STRT* are empty', () => {
+    expect(buildAddress({ ADDRESS: '', PREMSNUM: '8931', PREMSNAM: 'AMELUNG', PREMSTYP: 'ST' }))
+      .toBe('8931 AMELUNG ST');
+  });
+
+  it('includes PREMSDIR', () => {
+    expect(buildAddress({ ADDRESS: '', PREMSNUM: '100', PREMSDIR: 'N', PREMSNAM: 'MAIN' }))
+      .toBe('100 N MAIN');
+  });
+
+  it('returns null when all address fields are empty', () => {
+    expect(buildAddress({ ADDRESS: '' })).toBeNull();
+  });
+
+  it('prefers STRT* over PREMS*', () => {
+    expect(buildAddress({
+      ADDRESS: '',
+      STRTNUM: '100', STRTNAM: 'OAK',
+      PREMSNUM: '200', PREMSNAM: 'ELM',
+    })).toBe('100 OAK');
   });
 });
 
@@ -472,6 +553,17 @@ function createMinimalRow(): CsvRow {
     CITY: 'TEST CITY',
     ZIPCODE: '12345',
     JURSCODE: 'FRED',
+    STRTNUM: '',
+    STRTDIR: '',
+    STRTNAM: '',
+    STRTTYP: '',
+    STRTSFX: '',
+    PREMSNUM: '',
+    PREMSDIR: '',
+    PREMSNAM: '',
+    PREMSTYP: '',
+    PREMCITY: '',
+    PREMZIP: '',
     OWNNAME1: '',
     OWNNAME2: '',
     DESCLU: '',
