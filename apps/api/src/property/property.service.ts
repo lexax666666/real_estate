@@ -7,6 +7,7 @@ import {
 import { PropertyDbService } from './property-db.service';
 import { RentCastService } from './rent-cast.service';
 import { DatadogService } from '../monitoring/datadog.service';
+import { AddressParserService } from './address-parser.service';
 
 @Injectable()
 export class PropertyService {
@@ -14,19 +15,22 @@ export class PropertyService {
     private readonly propertyDbService: PropertyDbService,
     private readonly rentCastService: RentCastService,
     private readonly datadogService: DatadogService,
+    private readonly addressParser: AddressParserService,
   ) {}
 
   async getProperty(address: string) {
+    // Parse the user input to get structured address components
+    const parsed = this.addressParser.parseAddress(address);
+
     // Check database cache first
     console.log('Checking database cache for:', address);
     const cachedProperty = await this.propertyDbService.getPropertyFromDB(address);
 
-    if (cachedProperty && this.propertyDbService.isCacheFresh(cachedProperty.updatedAt)) {
+    if (cachedProperty) {
       console.log('Returning cached property data');
 
       this.datadogService.addTraceTags({
         'cache.hit': true,
-        'cache.fresh': true,
         'data.source': 'database_cache',
         'response.cached': true,
         'property.type': cachedProperty.data.propertyType || 'unknown',
@@ -45,29 +49,22 @@ export class PropertyService {
       };
     }
 
-    if (cachedProperty) {
-      console.log('Cache exists but is stale, fetching fresh data');
-      this.datadogService.addTraceTags({
-        'cache.hit': true,
-        'cache.fresh': false,
-        'cache.stale': true,
-      });
-      this.datadogService.incrementMetric('property.cache.stale', 1);
-    } else {
-      console.log('No cache found, fetching from API');
-      this.datadogService.addTraceTags({
-        'cache.hit': false,
-        'cache.miss': true,
-      });
-      this.datadogService.incrementMetric('property.cache.miss', 1);
-    }
+    console.log('No cache found, fetching from API');
+    this.datadogService.addTraceTags({
+      'cache.hit': false,
+      'cache.miss': true,
+    });
+    this.datadogService.incrementMetric('property.cache.miss', 1);
 
     try {
-      // Fetch property data from RentCast API with custom span
+      // Use the full parsed address for RentCast API call
+      const rentCastAddress = parsed.fullAddress;
+      console.log('Fetching from RentCast with address:', rentCastAddress);
+
       const property = await this.datadogService.createCustomSpan(
         'rentcast.fetch.property',
-        async () => await this.rentCastService.fetchPropertyFromRentCast(address),
-        { address },
+        async () => await this.rentCastService.fetchPropertyFromRentCast(rentCastAddress),
+        { address: rentCastAddress },
       );
       console.log('Property data received:', property);
 
@@ -93,7 +90,7 @@ export class PropertyService {
         'property.square_footage': transformedData.squareFootage || 0,
       });
 
-      // Save to database cache
+      // Save to database cache using the parsed street address
       console.log('Saving property data to database');
       await this.propertyDbService.savePropertyToDB(address, transformedData);
 

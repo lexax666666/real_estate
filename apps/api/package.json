@@ -21,6 +21,7 @@
     "axios": "^1.11.0",
     "dd-trace": "^5.81.0",
     "drizzle-orm": "^0.45.2",
+    "parse-address": "^1.1.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   },

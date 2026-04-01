@@ -9,6 +9,7 @@ import {
   jsonb,
   timestamp,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -52,7 +53,10 @@ export const properties = pgTable(
     accessCount: integer('access_count').default(0).notNull(),
     dataSource: varchar('data_source', { length: 20 }),
   },
-  (table) => [uniqueIndex('properties_address_idx').on(table.address)],
+  (table) => [
+    uniqueIndex('properties_address_idx').on(table.address),
+    index('properties_county_state_idx').on(table.county, table.state),
+  ],
 );
 
 export const taxAssessments = pgTable(

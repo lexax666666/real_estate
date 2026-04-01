@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, sql, lt, count, avg, min, max } from 'drizzle-orm';
+import { eq, sql, lt, count, avg, min, max, and } from 'drizzle-orm';
 import { NeonHttpDatabase } from 'drizzle-orm/neon-http';
 import {
   properties,
@@ -9,6 +9,7 @@ import {
 } from '../db/schema';
 import * as schema from '../db/schema';
 import { DRIZZLE } from '../db/db.module';
+import { AddressParserService } from './address-parser.service';
 
 export interface PropertyCacheEntry {
   id: number;
@@ -25,20 +26,49 @@ export class PropertyDbService {
   constructor(
     @Inject(DRIZZLE)
     private readonly db: NeonHttpDatabase<typeof schema>,
+    private readonly addressParser: AddressParserService,
   ) {}
 
   async getPropertyFromDB(address: string): Promise<any | null> {
     try {
-      const normalizedAddress = address.trim().toLowerCase();
+      const parsed = this.addressParser.parseAddress(address);
+      const streetAddress = parsed.streetAddress.trim().toLowerCase();
 
-      const result = await this.db.query.properties.findFirst({
-        where: eq(properties.address, normalizedAddress),
+      // Build query conditions: always match on street address
+      const conditions = [eq(properties.address, streetAddress)];
+
+      // If parsed city/state/zip are available, add them to narrow the search
+      if (parsed.city) {
+        conditions.push(eq(properties.city, parsed.city));
+      }
+      if (parsed.state) {
+        conditions.push(eq(properties.state, parsed.state));
+      }
+      if (parsed.zip) {
+        conditions.push(eq(properties.zipCode, parsed.zip));
+      }
+
+      // Try with all conditions first (most specific)
+      let result = await this.db.query.properties.findFirst({
+        where: and(...conditions),
         with: {
           taxAssessments: true,
           propertyTaxes: true,
           saleHistory: true,
         },
       });
+
+      // If no result and we had extra conditions, fall back to street-only match
+      if (!result && conditions.length > 1) {
+        result = await this.db.query.properties.findFirst({
+          where: eq(properties.address, streetAddress),
+          with: {
+            taxAssessments: true,
+            propertyTaxes: true,
+            saleHistory: true,
+          },
+        });
+      }
 
       if (!result) {
         return null;
@@ -72,7 +102,9 @@ export class PropertyDbService {
     rawResponse?: any,
   ): Promise<boolean> {
     try {
-      const normalizedAddress = address.trim().toLowerCase();
+      // Parse to extract street-only portion for the address column
+      const parsed = this.addressParser.parseAddress(address);
+      const normalizedAddress = parsed.streetAddress.trim().toLowerCase();
 
       // Upsert the main property record
       const [upserted] = await this.db
