@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 import * as path from 'path';
 import { PropertyDbService } from '../property-db.service';
+import { AddressParserService } from '../address-parser.service';
 import * as schema from '../../db/schema';
 
 const { properties } = schema;
@@ -13,6 +14,7 @@ let container: StartedPostgreSqlContainer;
 let pool: Pool;
 let db: ReturnType<typeof drizzle<typeof schema>>;
 let service: PropertyDbService;
+let addressParser: AddressParserService;
 
 // Sample transformed property data (matches transformRentCastResponse output)
 const samplePropertyData = {
@@ -92,7 +94,8 @@ beforeAll(async () => {
   });
 
   // Create service with the test db instance (duck-typed as NeonHttpDatabase)
-  service = new PropertyDbService(db as any);
+  addressParser = new AddressParserService();
+  service = new PropertyDbService(db as any, addressParser);
 }, 120000);
 
 afterAll(async () => {
@@ -112,9 +115,9 @@ describe('getPropertyFromDB', () => {
   });
 
   it('should return data + related records for existing property', async () => {
-    await service.savePropertyToDB('123 Main St, Columbia, MD 21045', samplePropertyData);
+    await service.savePropertyToDB('123 Main St Columbia MD 21045', samplePropertyData);
 
-    const result = await service.getPropertyFromDB('123 Main St, Columbia, MD 21045');
+    const result = await service.getPropertyFromDB('123 Main St Columbia MD 21045');
 
     expect(result).not.toBeNull();
     expect(result.data).toBeDefined();
@@ -125,19 +128,37 @@ describe('getPropertyFromDB', () => {
     expect(result.data.propertyTaxes).toBeDefined();
     expect(result.data.history).toBeDefined();
   });
+
+  it('should find property with street-only search when saved with full address', async () => {
+    await service.savePropertyToDB('0 maxwell ln north east md 21901', samplePropertyData);
+
+    // Search with just the street portion
+    const result = await service.getPropertyFromDB('0 maxwell ln');
+    expect(result).not.toBeNull();
+    expect(result.data.city).toBe('Columbia');
+  });
+
+  it('should find property with full address search when saved with full address', async () => {
+    await service.savePropertyToDB('0 maxwell ln north east md 21901', samplePropertyData);
+
+    // Search with full address — should still find it
+    const result = await service.getPropertyFromDB('0 maxwell ln north east md 21901');
+    expect(result).not.toBeNull();
+    expect(result.data.city).toBe('Columbia');
+  });
 });
 
 describe('savePropertyToDB', () => {
   it('should store normalized data across all tables', async () => {
     const saved = await service.savePropertyToDB(
-      '456 Oak Ave, Baltimore, MD 21201',
+      '456 Oak Ave Baltimore MD 21201',
       samplePropertyData,
     );
 
     expect(saved).toBe(true);
 
-    // Verify data is in the properties table
-    const result = await service.getPropertyFromDB('456 Oak Ave, Baltimore, MD 21201');
+    // Verify data is in the properties table (lookup by street-only should work)
+    const result = await service.getPropertyFromDB('456 Oak Ave');
     expect(result).not.toBeNull();
     expect(result.data.city).toBe('Columbia');
     expect(result.data.bedrooms).toBe(4);
@@ -154,17 +175,29 @@ describe('savePropertyToDB', () => {
     expect(result.data.history).toHaveLength(2);
   });
 
+  it('should save only street portion in address column', async () => {
+    await service.savePropertyToDB(
+      '0 maxwell ln north east md 21901',
+      samplePropertyData,
+    );
+
+    // The address column should only contain the street portion
+    const rows = await db.select({ address: properties.address }).from(properties);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].address).toBe('0 maxwell ln');
+  });
+
   it('should upsert correctly on duplicate address', async () => {
-    await service.savePropertyToDB('upsert-test', samplePropertyData);
+    await service.savePropertyToDB('123 Test St', samplePropertyData);
 
     const updatedData = {
       ...samplePropertyData,
       city: 'Updated City',
       bedrooms: 5,
     };
-    await service.savePropertyToDB('upsert-test', updatedData);
+    await service.savePropertyToDB('123 Test St', updatedData);
 
-    const result = await service.getPropertyFromDB('upsert-test');
+    const result = await service.getPropertyFromDB('123 Test St');
     expect(result.data.city).toBe('Updated City');
     expect(result.data.bedrooms).toBe(5);
   });
@@ -172,8 +205,8 @@ describe('savePropertyToDB', () => {
 
 describe('API response shape test', () => {
   it('should produce output matching transformRentCastResponse format', async () => {
-    await service.savePropertyToDB('response-shape-test', samplePropertyData);
-    const result = await service.getPropertyFromDB('response-shape-test');
+    await service.savePropertyToDB('100 Response Shape Test St', samplePropertyData);
+    const result = await service.getPropertyFromDB('100 Response Shape Test St');
     const data = result.data;
 
     // Verify all expected fields exist
@@ -256,7 +289,7 @@ describe('isCacheFresh', () => {
 describe('cleanupStaleCache', () => {
   it('should delete old entries and cascade to related tables', async () => {
     // Insert a property
-    await service.savePropertyToDB('old-property', samplePropertyData);
+    await service.savePropertyToDB('100 Old Property St', samplePropertyData);
 
     // Manually set updated_at to 100 days ago
     await db
@@ -269,25 +302,25 @@ describe('cleanupStaleCache', () => {
     expect(deleted).toBe(1);
 
     // Verify property is gone
-    const result = await service.getPropertyFromDB('old-property');
+    const result = await service.getPropertyFromDB('100 Old Property St');
     expect(result).toBeNull();
   });
 
   it('should not delete recent entries', async () => {
-    await service.savePropertyToDB('recent-property', samplePropertyData);
+    await service.savePropertyToDB('100 Recent Property St', samplePropertyData);
 
     const deleted = await service.cleanupStaleCache(90);
     expect(deleted).toBe(0);
 
-    const result = await service.getPropertyFromDB('recent-property');
+    const result = await service.getPropertyFromDB('100 Recent Property St');
     expect(result).not.toBeNull();
   });
 });
 
 describe('getCacheStats', () => {
   it('should return correct aggregates', async () => {
-    await service.savePropertyToDB('stats-test-1', samplePropertyData);
-    await service.savePropertyToDB('stats-test-2', samplePropertyData);
+    await service.savePropertyToDB('100 Stats Test St', samplePropertyData);
+    await service.savePropertyToDB('200 Stats Test St', samplePropertyData);
 
     const stats = await service.getCacheStats();
     expect(stats).not.toBeNull();
