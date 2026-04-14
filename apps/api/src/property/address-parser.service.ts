@@ -11,6 +11,89 @@ export interface ParsedAddress {
 
 @Injectable()
 export class AddressParserService {
+  private readonly ABBREVIATIONS: Record<string, string> = {
+    st: 'street',
+    street: 'st',
+    ave: 'avenue',
+    avenue: 'ave',
+    rd: 'road',
+    road: 'rd',
+    dr: 'drive',
+    drive: 'dr',
+    ln: 'lane',
+    lane: 'ln',
+    blvd: 'boulevard',
+    boulevard: 'blvd',
+    ct: 'court',
+    court: 'ct',
+    pl: 'place',
+    place: 'pl',
+    cir: 'circle',
+    circle: 'cir',
+    pkwy: 'parkway',
+    parkway: 'pkwy',
+    trl: 'trail',
+    trail: 'trl',
+    ter: 'terrace',
+    terrace: 'ter',
+    n: 'north',
+    north: 'n',
+    s: 'south',
+    south: 's',
+    e: 'east',
+    east: 'e',
+    w: 'west',
+    west: 'w',
+    ne: 'northeast',
+    northeast: 'ne',
+    nw: 'northwest',
+    northwest: 'nw',
+    se: 'southeast',
+    southeast: 'se',
+    sw: 'southwest',
+    southwest: 'sw',
+    apt: 'apartment',
+    apartment: 'apt',
+  };
+
+  private readonly US_STATES = new Set([
+    'al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga',
+    'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md',
+    'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj',
+    'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc',
+    'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy',
+    'dc',
+  ]);
+
+  private readonly NOISE_WORDS = new Set([
+    'my', 'the', 'a', 'an', 'at', 'is', 'in', 'on', 'of', 'for',
+    'to', 'and', 'or', 'house', 'address', 'property', 'located',
+  ]);
+
+  expandAbbreviations(token: string): string[] {
+    const lower = token.toLowerCase();
+    const synonym = this.ABBREVIATIONS[lower];
+    return synonym ? [lower, synonym] : [lower];
+  }
+
+  tokenizeSearchInput(input: string): string[] {
+    return input
+      .toLowerCase()
+      .replace(/[,\-\/\\]+/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+  }
+
+  classifyToken(token: string): 'house_number' | 'zip' | 'state' | 'noise' | 'word' {
+    if (this.NOISE_WORDS.has(token)) return 'noise';
+    if (/^\d+$/.test(token)) {
+      if (token.length === 5) return 'zip';
+      return 'house_number';
+    }
+    if (token.length === 2 && this.US_STATES.has(token)) return 'state';
+    return 'word';
+  }
+
   parseAddress(input: string): ParsedAddress {
     const trimmed = input.trim().toLowerCase();
     const parsed = parseLocation(trimmed);
