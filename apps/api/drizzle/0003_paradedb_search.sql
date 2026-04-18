@@ -1,6 +1,6 @@
 -- Enable ParadeDB pg_search extension for BM25 full-text search
 CREATE EXTENSION IF NOT EXISTS pg_search;
-
+--> statement-breakpoint
 -- Create BM25 index on properties table for fuzzy address search
 -- key_field must be listed first and have a UNIQUE constraint (id is PRIMARY KEY)
 CREATE INDEX IF NOT EXISTS properties_bm25_idx ON properties
