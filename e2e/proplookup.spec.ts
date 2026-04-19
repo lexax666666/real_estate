@@ -67,33 +67,57 @@ test.describe('PropLookup Frontend', () => {
     // Type something - button should enable
     await page.locator('.search-card .search-input').fill('123 Main St');
     await expect(heroSubmit).not.toBeDisabled();
+
+    // Center should still be disabled (independent state)
+    await expect(centerSubmit).toBeDisabled();
   });
 
-  test('search triggers API call and shows error on failure', async ({ page }) => {
+  test('center search shows error independently', async ({ page }) => {
     await page.goto(BASE_URL);
 
-    // Use center search to trigger a search (API won't be running, so expect error)
     const centerInput = page.locator('#center-addr');
     await centerInput.fill('123 Test Street');
     await page.locator('.center-submit').click();
 
-    // Should show error since API is not running
-    const errorEl = page.locator('[style*="rgb(255, 240, 240)"]');
-    await expect(errorEl).toBeVisible({ timeout: 10000 });
-    const errorText = await errorEl.textContent();
-    expect(errorText).toBeTruthy();
+    // Error should appear in center card only
+    const centerError = page.locator('.center-card [style*="rgb(255, 240, 240)"]');
+    await expect(centerError).toBeVisible({ timeout: 10000 });
+
+    // Hero should NOT show an error
+    const heroError = page.locator('.search-card .search-error');
+    await expect(heroError).not.toBeVisible();
   });
 
-  test('hero search triggers API call and shows error on failure', async ({ page }) => {
+  test('hero search shows error independently', async ({ page }) => {
     await page.goto(BASE_URL);
 
     const heroInput = page.locator('.search-card .search-input');
     await heroInput.fill('456 Hero Ave');
     await page.locator('.search-card .search-submit').click();
 
-    // Should show error since API is not running — error renders in center card
-    const errorEl = page.locator('[style*="rgb(255, 240, 240)"]');
-    await expect(errorEl).toBeVisible({ timeout: 10000 });
+    // Error should appear in hero card only
+    const heroError = page.locator('.search-card .search-error');
+    await expect(heroError).toBeVisible({ timeout: 10000 });
+
+    // Center card should NOT show an error
+    const centerError = page.locator('.center-card [style*="rgb(255, 240, 240)"]');
+    await expect(centerError).not.toBeVisible();
+  });
+
+  test('loading states are independent between searches', async ({ page }) => {
+    await page.goto(BASE_URL);
+
+    // Fill both inputs
+    await page.locator('.search-card .search-input').fill('hero address');
+    await page.locator('#center-addr').fill('center address');
+
+    // Click hero search
+    await page.locator('.search-card .search-submit').click();
+
+    // Center button should still say "Search", not "Searching..."
+    const centerBtn = page.locator('.center-submit');
+    await expect(centerBtn).toContainText('Search');
+    await expect(centerBtn).not.toContainText('Searching');
   });
 
   test('no Maryland government references in visible text', async ({ page }) => {

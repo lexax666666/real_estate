@@ -13,9 +13,7 @@ interface AutocompleteSuggestion {
 }
 
 interface PropertySearchProps {
-  onSearch: (address: string) => void;
-  loading: boolean;
-  error: string | null;
+  onSearch: (address: string) => Promise<any>;
 }
 
 const TIPS = [
@@ -25,8 +23,10 @@ const TIPS = [
   { num: "04", title: "Autocomplete available", body: "Start typing and select from suggested addresses for the most accurate results." },
 ];
 
-export default function PropertySearch({ onSearch, loading, error }: PropertySearchProps) {
+export default function PropertySearch({ onSearch }: PropertySearchProps) {
   const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -66,20 +66,30 @@ export default function PropertySearch({ onSearch, loading, error }: PropertySea
     debounceRef.current = setTimeout(() => fetchSuggestions(value), 300);
   };
 
+  const doSearch = async (address: string) => {
+    setLoading(true);
+    setError(null);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    try {
+      await onSearch(address);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSelectSuggestion = (suggestion: AutocompleteSuggestion) => {
     const displayAddress = suggestion.formattedAddress || suggestion.address;
     setQuery(displayAddress);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    onSearch(displayAddress);
+    doSearch(displayAddress);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      onSearch(query.trim());
+      doSearch(query.trim());
     }
   };
 

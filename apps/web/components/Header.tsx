@@ -54,17 +54,25 @@ function HeroGraphic() {
 }
 
 interface HeaderProps {
-  onSearch: (address: string) => void;
-  loading: boolean;
+  onSearch: (address: string) => Promise<any>;
 }
 
-export default function Header({ onSearch, loading }: HeaderProps) {
+export default function Header({ onSearch }: HeaderProps) {
   const [heroQuery, setHeroQuery] = useState('');
+  const [heroLoading, setHeroLoading] = useState(false);
+  const [heroError, setHeroError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleHeroSubmit = () => {
-    if (heroQuery.trim()) {
-      onSearch(heroQuery.trim());
+  const handleHeroSubmit = async () => {
+    if (!heroQuery.trim()) return;
+    setHeroLoading(true);
+    setHeroError(null);
+    try {
+      await onSearch(heroQuery.trim());
+    } catch (err) {
+      setHeroError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setHeroLoading(false);
     }
   };
 
@@ -134,13 +142,19 @@ export default function Header({ onSearch, loading }: HeaderProps) {
                     value={heroQuery}
                     onChange={(e) => setHeroQuery(e.target.value)}
                     aria-label="Property address"
+                    disabled={heroLoading}
                   />
                 </div>
-                <button type="submit" className="search-submit" disabled={loading || !heroQuery.trim()}>
-                  {loading ? 'Searching\u2026' : 'Search'}
+                <button type="submit" className="search-submit" disabled={heroLoading || !heroQuery.trim()}>
+                  {heroLoading ? 'Searching\u2026' : 'Search'}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 </button>
               </div>
+              {heroError && (
+                <div className="search-error" style={{ marginTop: 14, padding: '10px 14px', background: '#FFF0F0', borderLeft: '4px solid var(--red)', fontSize: 13 }}>
+                  {heroError}
+                </div>
+              )}
             </form>
           </div>
           <div className="hero-graphic">

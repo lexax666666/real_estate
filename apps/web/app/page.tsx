@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PropertySearch from '@/components/PropertySearch';
 import PropertyInfo from '@/components/PropertyInfo';
@@ -9,53 +9,53 @@ import Footer from '@/components/Footer';
 
 function HomeContent() {
   const [propertyData, setPropertyData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [searchHistory, setSearchHistory] = useState<any[]>([]);
   const [isNavigatingToPrevious, setIsNavigatingToPrevious] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  // Core fetch logic — returns data or throws. Does NOT manage loading/error state.
+  const fetchProperty = useCallback(async (address: string) => {
+    const params = new URLSearchParams({ address });
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const response = await fetch(`${apiUrl}/api/property?${params}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch property data');
+    }
+
+    return response.json();
+  }, []);
+
+  // Called by Header and PropertySearch — each manages its own loading/error around this
+  const handleSearch = useCallback(async (address: string) => {
+    setIsSearching(true);
+    try {
+      const data = await fetchProperty(address);
+      setPropertyData(data);
+      setSearchHistory(prev => [data, ...prev.slice(0, 9)]);
+      router.push(`?address=${encodeURIComponent(address)}`, { scroll: false });
+      return data;
+    } finally {
+      setIsSearching(false);
+    }
+  }, [fetchProperty, router]);
+
   useEffect(() => {
     const address = searchParams.get('address');
     if (address && !isNavigatingToPrevious) {
-      handleSearch(address);
+      handleSearch(address).catch(() => {});
     } else if (!address) {
       setPropertyData(null);
-      setError(null);
     }
     if (isNavigatingToPrevious) {
       setIsNavigatingToPrevious(false);
     }
   }, [searchParams, isNavigatingToPrevious]);
 
-  const handleSearch = async (address: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({ address });
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/property?${params}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch property data');
-      }
-
-      const data = await response.json();
-      setPropertyData(data);
-      setSearchHistory(prev => [data, ...prev.slice(0, 9)]);
-      router.push(`?address=${encodeURIComponent(address)}`, { scroll: false });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleNewSearch = () => {
     setPropertyData(null);
-    setError(null);
     router.push('/', { scroll: false });
   };
 
@@ -73,11 +73,11 @@ function HomeContent() {
 
   return (
     <>
-      <Header onSearch={handleSearch} loading={loading} />
-      <PropertySearch onSearch={handleSearch} loading={loading} error={error} />
+      <Header onSearch={handleSearch} />
+      <PropertySearch onSearch={handleSearch} />
 
-      {/* Loading state */}
-      {loading && (
+      {/* Global loading indicator */}
+      {isSearching && (
         <div className="main-content">
           <div className="results-panel" style={{ marginTop: 0 }}>
             <div className="loading-state">
@@ -88,7 +88,7 @@ function HomeContent() {
       )}
 
       {/* Results */}
-      {propertyData && !loading && (
+      {propertyData && !isSearching && (
         <PropertyInfo
           data={propertyData}
           onNewSearch={handleNewSearch}
