@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 
 function BrandMark() {
   return (
@@ -54,14 +54,19 @@ function HeroGraphic() {
 }
 
 interface HeaderProps {
-  query: string;
-  setQuery: (q: string) => void;
-  onSubmit: () => void;
+  onSearch: (address: string) => void;
   loading: boolean;
 }
 
-export default function Header({ query, setQuery, onSubmit, loading }: HeaderProps) {
+export default function Header({ onSearch, loading }: HeaderProps) {
+  const [heroQuery, setHeroQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleHeroSubmit = () => {
+    if (heroQuery.trim()) {
+      onSearch(heroQuery.trim());
+    }
+  };
 
   return (
     <>
@@ -108,7 +113,7 @@ export default function Header({ query, setQuery, onSubmit, loading }: HeaderPro
             <p className="hero-lede">
               Search any parcel in the public records index. Enter a full street address to view assessed value, building characteristics, and valuation history — no account required.
             </p>
-            <form className="search-card" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
+            <form className="search-card" onSubmit={(e) => { e.preventDefault(); handleHeroSubmit(); }}>
               <div className="search-card-head">
                 <div className="search-card-title">Property Data Search</div>
                 <div className="search-card-meta">Form · A-01</div>
@@ -126,12 +131,12 @@ export default function Header({ query, setQuery, onSubmit, loading }: HeaderPro
                     ref={inputRef}
                     className="search-input"
                     placeholder="Enter a street address, e.g. 123 Main St"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    value={heroQuery}
+                    onChange={(e) => setHeroQuery(e.target.value)}
                     aria-label="Property address"
                   />
                 </div>
-                <button type="submit" className="search-submit" disabled={loading || !query.trim()}>
+                <button type="submit" className="search-submit" disabled={loading || !heroQuery.trim()}>
                   {loading ? 'Searching\u2026' : 'Search'}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 </button>

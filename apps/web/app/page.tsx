@@ -8,7 +8,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 function HomeContent() {
-  const [query, setQuery] = useState('');
   const [propertyData, setPropertyData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +19,6 @@ function HomeContent() {
   useEffect(() => {
     const address = searchParams.get('address');
     if (address && !isNavigatingToPrevious) {
-      setQuery(address);
       handleSearch(address);
     } else if (!address) {
       setPropertyData(null);
@@ -58,7 +56,6 @@ function HomeContent() {
   const handleNewSearch = () => {
     setPropertyData(null);
     setError(null);
-    setQuery('');
     router.push('/', { scroll: false });
   };
 
@@ -74,27 +71,10 @@ function HomeContent() {
     }
   };
 
-  const handleSubmitFromHero = () => {
-    if (query.trim()) {
-      handleSearch(query.trim());
-    }
-  };
-
   return (
     <>
-      <Header
-        query={query}
-        setQuery={setQuery}
-        onSubmit={handleSubmitFromHero}
-        loading={loading}
-      />
-      <PropertySearch
-        query={query}
-        setQuery={setQuery}
-        onSearch={handleSearch}
-        loading={loading}
-        error={error}
-      />
+      <Header onSearch={handleSearch} loading={loading} />
+      <PropertySearch onSearch={handleSearch} loading={loading} error={error} />
 
       {/* Loading state */}
       {loading && (

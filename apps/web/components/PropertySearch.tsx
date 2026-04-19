@@ -13,8 +13,6 @@ interface AutocompleteSuggestion {
 }
 
 interface PropertySearchProps {
-  query: string;
-  setQuery: (q: string) => void;
   onSearch: (address: string) => void;
   loading: boolean;
   error: string | null;
@@ -27,7 +25,8 @@ const TIPS = [
   { num: "04", title: "Autocomplete available", body: "Start typing and select from suggested addresses for the most accurate results." },
 ];
 
-export default function PropertySearch({ query, setQuery, onSearch, loading, error }: PropertySearchProps) {
+export default function PropertySearch({ onSearch, loading, error }: PropertySearchProps) {
+  const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
