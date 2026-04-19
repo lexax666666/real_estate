@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 function HomeContent() {
+  const [query, setQuery] = useState('');
   const [propertyData, setPropertyData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +20,12 @@ function HomeContent() {
   useEffect(() => {
     const address = searchParams.get('address');
     if (address && !isNavigatingToPrevious) {
+      setQuery(address);
       handleSearch(address);
     } else if (!address) {
-      // Clear property data when no address in URL
       setPropertyData(null);
       setError(null);
     }
-    // Reset navigation flag
     if (isNavigatingToPrevious) {
       setIsNavigatingToPrevious(false);
     }
@@ -34,7 +34,7 @@ function HomeContent() {
   const handleSearch = async (address: string) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams({ address });
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -47,8 +47,6 @@ function HomeContent() {
       const data = await response.json();
       setPropertyData(data);
       setSearchHistory(prev => [data, ...prev.slice(0, 9)]);
-      
-      // Update URL with address
       router.push(`?address=${encodeURIComponent(address)}`, { scroll: false });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -60,6 +58,7 @@ function HomeContent() {
   const handleNewSearch = () => {
     setPropertyData(null);
     setError(null);
+    setQuery('');
     router.push('/', { scroll: false });
   };
 
@@ -69,21 +68,49 @@ function HomeContent() {
       setIsNavigatingToPrevious(true);
       setPropertyData(previousData);
       setSearchHistory(prev => [previousData, ...prev.filter((_, i) => i !== 1)]);
-      
-      // Update URL with the previous property's address
       if (previousData.address) {
         router.push(`?address=${encodeURIComponent(previousData.address)}`, { scroll: false });
       }
     }
   };
 
+  const handleSubmitFromHero = () => {
+    if (query.trim()) {
+      handleSearch(query.trim());
+    }
+  };
+
   return (
     <>
-      {!propertyData ? (
-        <PropertySearch onSearch={handleSearch} loading={loading} error={error} />
-      ) : (
-        <PropertyInfo 
-          data={propertyData} 
+      <Header
+        query={query}
+        setQuery={setQuery}
+        onSubmit={handleSubmitFromHero}
+        loading={loading}
+      />
+      <PropertySearch
+        query={query}
+        setQuery={setQuery}
+        onSearch={handleSearch}
+        loading={loading}
+        error={error}
+      />
+
+      {/* Loading state */}
+      {loading && (
+        <div className="main-content">
+          <div className="results-panel" style={{ marginTop: 0 }}>
+            <div className="loading-state">
+              Retrieving property record <span className="loading-dot" /><span className="loading-dot" /><span className="loading-dot" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {propertyData && !loading && (
+        <PropertyInfo
+          data={propertyData}
           onNewSearch={handleNewSearch}
           onPreviousSearch={handlePreviousSearch}
           hasPrevious={searchHistory.length > 1}
@@ -95,15 +122,10 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
-      <main className="flex-1">
-        <div className="container mx-auto p-4">
-          <Suspense fallback={<div>Loading...</div>}>
-            <HomeContent />
-          </Suspense>
-        </div>
-      </main>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Suspense fallback={<div className="loading-state">Loading<span className="loading-dot" /><span className="loading-dot" /><span className="loading-dot" /></div>}>
+        <HomeContent />
+      </Suspense>
       <Footer />
     </div>
   );
