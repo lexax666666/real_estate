@@ -28,7 +28,7 @@ export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasP
         <div className="flex gap-2 mb-4">
           <button
             onClick={onNewSearch}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 transition-colors text-sm font-medium"
           >
             New Search
           </button>
@@ -45,11 +45,6 @@ export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasP
         <div className="flex justify-between items-start">
           <div>
             <button className="text-yellow-600 hover:underline mb-2">View Map</button>
-            <div className="text-red-500 font-medium">Special Tax Recapture: None</div>
-          </div>
-          <div className="text-right">
-            <div className="font-medium">No Ground Rent Redemption on File</div>
-            <div className="font-medium mt-2">No Ground Rent Registration on File</div>
           </div>
         </div>
       </div>

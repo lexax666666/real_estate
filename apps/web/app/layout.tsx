@@ -13,15 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Maryland Property Search - SDAT",
-  description: "Search for property information in Maryland - Department of Assessments and Taxation",
+  title: "PropertyScope - Property Data Search",
+  description: "Search property records including owner information, assessed values, and transfer history.",
   icons: {
     icon: [
-      { url: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1" },
-      { url: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
     ],
-    shortcut: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/favicon.ico?v=1",
-    apple: "https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png",
   },
 };
 

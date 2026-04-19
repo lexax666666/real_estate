@@ -25,7 +25,7 @@ export default function PropertySearch({ onSearch, loading, error }: PropertySea
           Real Property Data Search
         </h2>
         
-        <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6">
+        <div className="bg-teal-50 border-l-4 border-teal-600 p-4 mb-6">
           <p className="text-sm text-gray-700">
             <strong>Welcome to Real Property Search!</strong> This application allows you to search for property information by entering a street address.
           </p>
@@ -42,14 +42,14 @@ export default function PropertySearch({ onSearch, loading, error }: PropertySea
                 id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="11760 Baltimore Ave, Beltsville, MD 20705"
-                className="flex-1 px-4 py-2 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="123 Main St, Anytown, ST 12345"
+                className="flex-1 px-4 py-2 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 disabled={loading}
               />
               <button
                 type="submit"
                 disabled={loading || !address.trim()}
-                className="px-6 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-teal-600 text-white font-medium rounded hover:bg-teal-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {loading ? 'Searching...' : 'Search'}
               </button>
