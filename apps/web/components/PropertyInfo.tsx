@@ -7,219 +7,273 @@ interface PropertyInfoProps {
   hasPrevious: boolean;
 }
 
-function currency(n: number) {
-  return '$' + n.toLocaleString('en-US');
-}
-
-function formatDate(date: string) {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-US');
-}
-
-function MapPlaceholder() {
-  return (
-    <div className="map-ph">
-      <svg className="map-roads" viewBox="0 0 400 300" preserveAspectRatio="none">
-        <path d="M0 180 L400 120" stroke="#1a1a1a" strokeWidth="6" opacity="0.85"/>
-        <path d="M0 180 L400 120" stroke="#FFC928" strokeWidth="2" strokeDasharray="6 6"/>
-        <path d="M120 0 L180 300" stroke="#1a1a1a" strokeWidth="4" opacity="0.7"/>
-        <path d="M280 0 L220 300" stroke="#1a1a1a" strokeWidth="4" opacity="0.7"/>
-        <path d="M0 60 C 80 80, 160 40, 240 90 S 360 130, 400 110" stroke="#1a1a1a" strokeWidth="2" opacity="0.3" fill="none"/>
-        <rect x="175" y="130" width="50" height="42" fill="#C8102E" opacity="0.15" stroke="#C8102E" strokeWidth="1.5" strokeDasharray="3 3"/>
-      </svg>
-      <svg className="map-pin" viewBox="0 0 40 50" width="36" height="45">
-        <path d="M20 2 C 30 2, 38 10, 38 20 C 38 32, 20 48, 20 48 C 20 48, 2 32, 2 20 C 2 10, 10 2, 20 2 Z"
-              fill="#C8102E" stroke="#1a1a1a" strokeWidth="2"/>
-        <circle cx="20" cy="20" r="6" fill="#FAFAF7"/>
-      </svg>
-      <div className="map-scale">0 ——— 150 ft</div>
-    </div>
-  );
-}
-
 export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasPrevious }: PropertyInfoProps) {
-  const address = data.formattedAddress || data.address || 'Unknown Address';
-  const fullAddress = [address, data.city, data.state, data.zipCode].filter(Boolean).join(', ');
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
 
-  // Assessment values
-  const totalAssessed = data.assessedValue?.total || data.lastSalePrice || 0;
-  const landValue = data.assessedValue?.land || 0;
-  const improvementValue = data.assessedValue?.building || 0;
+  const formatDate = (date: string) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US');
+  };
 
   return (
-    <div className="main-content">
-      <div className="section-head" style={{ marginTop: 0 }}>
-        <h2 className="section-title"><span className="num">02</span>Result</h2>
-        <span className="section-meta">1 record · public data</span>
-      </div>
-
-      <div className="results-panel">
-        {/* Banner */}
-        <div className="results-banner">
-          <div className="results-banner-left">
-            <span className="results-pill">MATCH</span>
-            <span className="results-addr">{fullAddress}</span>
-          </div>
-          <button className="results-close" onClick={onNewSearch}>× New search</button>
+    <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-md mt-8 mb-8">
+      <div className="border-b border-gray-200 p-6">
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={onNewSearch}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            New Search
+          </button>
+          {hasPrevious && (
+            <button
+              onClick={onPreviousSearch}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+            >
+              Previous Search
+            </button>
+          )}
         </div>
 
-        <div className="results-grid">
-          {/* Main content */}
-          <div className="res-main">
-            {/* Assessment block */}
-            {totalAssessed > 0 && (
-              <div className="assessment-block">
-                <div className="assessment-label">Total Assessed Value</div>
-                <div className="assessment-value">{currency(totalAssessed)}</div>
-              </div>
-            )}
+        <div className="flex justify-between items-start">
+          <div>
+            <button className="text-yellow-600 hover:underline mb-2">View Map</button>
+          </div>
+        </div>
+      </div>
 
-            {/* Property Details */}
-            <div className="section-head" style={{ marginTop: 32, borderBottomColor: '#e5e2d8', paddingBottom: 8 }}>
-              <h3 className="section-title" style={{ fontSize: 18 }}>Property Details</h3>
-              <span className="section-meta">Section A</span>
-            </div>
-            <div className="kvlist">
-              <div className="kv-k">Owner</div>
-              <div className="kv-v">{data.ownerName || 'N/A'}</div>
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <div className="text-gray-600 mb-1">Account Number:</div>
+            <div className="text-gray-600 mb-4">Owner Name:</div>
+            <div className="font-medium text-lg">{data.ownerName || 'N/A'}</div>
 
-              <div className="kv-k">Address</div>
-              <div className="kv-v">{address}</div>
+            <div className="text-gray-600 mt-4 mb-1">Mailing Address:</div>
+            <div>{data.address || 'N/A'}</div>
+            <div>{data.city || ''} {data.state || ''} {data.zipCode || ''}</div>
 
-              <div className="kv-k">City / State</div>
-              <div className="kv-v">{[data.city, data.state, data.zipCode].filter(Boolean).join(', ') || 'N/A'}</div>
-
-              <div className="kv-k">Property Type</div>
-              <div className="kv-v">{data.propertyType || 'N/A'}</div>
-
-              {data.zoning && (
-                <>
-                  <div className="kv-k">Zoning</div>
-                  <div className="kv-v mono">{data.zoning}</div>
-                </>
-              )}
-
-              {data.neighborhood && (
-                <>
-                  <div className="kv-k">Neighborhood</div>
-                  <div className="kv-v">{data.neighborhood}</div>
-                </>
-              )}
-
-              {data.subdivision && (
-                <>
-                  <div className="kv-k">Subdivision</div>
-                  <div className="kv-v">{data.subdivision}</div>
-                </>
-              )}
-
-              {data.lastSalePrice && (
-                <>
-                  <div className="kv-k">Last Sale</div>
-                  <div className="kv-v accent">
-                    {currency(data.lastSalePrice)}
-                    {data.lastSaleDate ? ` · ${formatDate(data.lastSaleDate)}` : ''}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Value breakdown if available */}
-            {(landValue > 0 || improvementValue > 0) && (
-              <>
-                <div className="section-head" style={{ marginTop: 32, borderBottomColor: '#e5e2d8', paddingBottom: 8 }}>
-                  <h3 className="section-title" style={{ fontSize: 18 }}>Value Breakdown</h3>
-                  <span className="section-meta">Section B</span>
-                </div>
-                <div className="kvlist">
-                  {landValue > 0 && (
-                    <>
-                      <div className="kv-k">Land</div>
-                      <div className="kv-v">{currency(landValue)}</div>
-                    </>
-                  )}
-                  {improvementValue > 0 && (
-                    <>
-                      <div className="kv-k">Improvements</div>
-                      <div className="kv-v">{currency(improvementValue)}</div>
-                    </>
-                  )}
-                  {totalAssessed > 0 && (
-                    <>
-                      <div className="kv-k">Total</div>
-                      <div className="kv-v accent">{currency(totalAssessed)}</div>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
+            <div className="text-gray-600 mt-4 mb-1">Premises Address:</div>
+            <div>{data.address || 'N/A'}</div>
+            <div>{data.city || ''} {data.state || ''} {data.zipCode || ''}</div>
           </div>
 
-          {/* Sidebar */}
-          <aside className="res-side">
-            <div className="side-panel-title">
-              <span>Location</span>
-              <span className="idx">MAP · 01</span>
-            </div>
-            <MapPlaceholder />
+          <div>
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-semibold text-center mb-4">Owner Information</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-600">Use:</div>
+                  <div>{data.propertyType || 'RESIDENTIAL'}</div>
 
-            <div className="side-panel-title">
-              <span>Structure</span>
-              <span className="idx">SEC · C</span>
-            </div>
-            <div className="parcel-summary">
-              {data.yearBuilt && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Built</div>
-                  <div className="parcel-stat-val">{data.yearBuilt}</div>
-                  <div className="parcel-stat-sub">year</div>
+                  <div className="text-gray-600 mt-2">Principal Residence:</div>
+                  <div>YES</div>
                 </div>
-              )}
-              {data.squareFootage && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Living</div>
-                  <div className="parcel-stat-val">{Number(data.squareFootage).toLocaleString()}</div>
-                  <div className="parcel-stat-sub">sq ft</div>
+                <div>
+                  <div className="text-gray-600">Deed Reference:</div>
+                  <div>{data.lastSaleDate ? formatDate(data.lastSaleDate) : 'N/A'}</div>
                 </div>
-              )}
-              {data.lotSize && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Lot</div>
-                  <div className="parcel-stat-val">{Number(data.lotSize).toLocaleString()}</div>
-                  <div className="parcel-stat-sub">sq ft</div>
-                </div>
-              )}
-              {data.bedrooms && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Bed</div>
-                  <div className="parcel-stat-val">{data.bedrooms}</div>
-                  <div className="parcel-stat-sub">rooms</div>
-                </div>
-              )}
-              {data.bathrooms && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Bath</div>
-                  <div className="parcel-stat-val">{data.bathrooms}</div>
-                  <div className="parcel-stat-sub">count</div>
-                </div>
-              )}
-              {data.stories && (
-                <div className="parcel-stat">
-                  <div className="parcel-stat-label">Stories</div>
-                  <div className="parcel-stat-val">{data.stories}</div>
-                  <div className="parcel-stat-sub">floors</div>
-                </div>
-              )}
+              </div>
             </div>
 
-            <div className="actions">
-              <button className="btn primary" onClick={onNewSearch}>New Search</button>
-              {hasPrevious && (
-                <button className="btn" onClick={onPreviousSearch}>Previous Search</button>
-              )}
-              <button className="btn" onClick={() => window.print()}>Print</button>
+            <div className="bg-gray-50 p-4 rounded mt-4">
+              <h3 className="font-semibold text-center mb-4">Location & Structure Information</h3>
+              <div className="text-sm">
+                <div className="text-gray-600">Legal Description:</div>
+                <div className="mb-2">{data.lotSize ? `LOT SIZE: ${data.lotSize} sq ft` : 'N/A'}</div>
+                <div>{data.address || 'N/A'}</div>
+              </div>
             </div>
-          </aside>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm border-t border-b py-4">
+          <div>
+            <div className="text-gray-600">Map:</div>
+            <div>{data.map || '-'}</div>
+            <div className="text-gray-600 mt-2">Town:</div>
+            <div>{data.town || 'None'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Grid:</div>
+            <div>{data.grid || '-'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Parcel:</div>
+            <div>{data.parcel || '-'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Neighborhood:</div>
+            <div>{data.neighborhood || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Subdivision:</div>
+            <div>{data.subdivision || 'N/A'}</div>
+            <div className="text-gray-600 mt-2">Section:</div>
+            <div>-</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6 mb-6">
+          <div>
+            <div className="text-gray-600 text-sm">Primary Structure Built</div>
+            <div className="font-semibold">{data.yearBuilt || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600 text-sm">Above Grade Living Area</div>
+            <div className="font-semibold">{data.squareFootage ? `${data.squareFootage} SF` : 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600 text-sm">Finished Basement Area</div>
+            <div className="font-semibold">{data.basementSize || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600 text-sm">Property Land Area</div>
+            <div className="font-semibold">{data.lotSize ? `${data.lotSize} SF` : 'N/A'}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 text-sm border-t pt-4">
+          <div>
+            <div className="text-gray-600">Stories</div>
+            <div>{data.stories || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Basement</div>
+            <div>{data.basement ? 'YES' : 'NO'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Type</div>
+            <div>{data.propertyType || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Exterior</div>
+            <div>{data.exterior || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Quality</div>
+            <div>{data.quality || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Full/Half Bath</div>
+            <div>{data.bathrooms ? `${Math.floor(data.bathrooms)} full/${data.bathrooms % 1 > 0 ? '1' : '0'} half` : 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Garage</div>
+            <div>{data.garage || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Last Major Improvements</div>
+            <div>-</div>
+          </div>
+        </div>
+
+        <div className="mt-8 bg-gray-50 p-4 rounded">
+          <h3 className="font-semibold text-center mb-4">Value Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h4 className="text-gray-600 mb-2">Base Value</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Land:</span>
+                  <span>{data.assessedValue?.land ? formatCurrency(data.assessedValue.land) : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Improvements:</span>
+                  <span>{data.assessedValue?.building ? formatCurrency(data.assessedValue.building) : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>{data.assessedValue?.total ? formatCurrency(data.assessedValue.total) : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Preferential Land:</span>
+                  <span>0</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-gray-600 mb-2">Assessed Value</h4>
+              <div className="space-y-1 text-sm">
+                {data.assessedValue?.land && (
+                  <div className="flex justify-between">
+                    <span>Land:</span>
+                    <span>{formatCurrency(data.assessedValue.land)}</span>
+                  </div>
+                )}
+                {data.assessedValue?.building && (
+                  <div className="flex justify-between">
+                    <span>Improvements:</span>
+                    <span>{formatCurrency(data.assessedValue.building)}</span>
+                  </div>
+                )}
+                {data.assessedValue?.total && (
+                  <div className="flex justify-between font-semibold">
+                    <span>Total:</span>
+                    <span>{formatCurrency(data.assessedValue.total)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-gray-600 mb-2">Last Sale</h4>
+              <div className="space-y-1 text-sm">
+                {data.lastSalePrice && (
+                  <div className="flex justify-between font-semibold">
+                    <span>Price:</span>
+                    <span>{formatCurrency(data.lastSalePrice)}</span>
+                  </div>
+                )}
+                {data.lastSaleDate && (
+                  <div className="flex justify-between">
+                    <span>Date:</span>
+                    <span>{formatDate(data.lastSaleDate)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 bg-gray-50 p-4 rounded">
+          <h3 className="font-semibold text-center mb-4">Transfer Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
+            <div>
+              <div className="text-gray-600">Seller:</div>
+              <div>{data.lastSalePrice ? 'PREVIOUS OWNER' : 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-gray-600">Date:</div>
+              <div>{data.lastSaleDate ? formatDate(data.lastSaleDate) : 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-gray-600">Price:</div>
+              <div>{data.lastSalePrice ? formatCurrency(data.lastSalePrice) : 'N/A'}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm mt-4">
+            <div>
+              <div className="text-gray-600">Type:</div>
+              <div>{data.lastSalePrice ? 'ARMS LENGTH IMPROVED' : 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-gray-600">Deed1:</div>
+              <div>{data.lastSaleDate ? formatDate(data.lastSaleDate) : 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-gray-600">Deed2:</div>
+              <div>-</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

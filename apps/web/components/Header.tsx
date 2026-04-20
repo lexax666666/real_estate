@@ -55,9 +55,10 @@ function HeroGraphic() {
 
 interface HeaderProps {
   onSearch: (address: string) => Promise<any>;
+  minimal?: boolean;
 }
 
-export default function Header({ onSearch }: HeaderProps) {
+export default function Header({ onSearch, minimal }: HeaderProps) {
   const [heroQuery, setHeroQuery] = useState('');
   const [heroLoading, setHeroLoading] = useState(false);
   const [heroError, setHeroError] = useState<string | null>(null);
@@ -108,8 +109,8 @@ export default function Header({ onSearch }: HeaderProps) {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="hero">
+      {/* Hero — hidden on minimal (property detail) pages */}
+      {!minimal && <section className="hero">
         <div className="hero-bg" />
         <div className="hero-inner">
           <div>
@@ -161,7 +162,7 @@ export default function Header({ onSearch }: HeaderProps) {
             <HeroGraphic />
           </div>
         </div>
-      </section>
+      </section>}
     </>
   );
 }
