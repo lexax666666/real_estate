@@ -1,144 +1,168 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
-export default function Header() {
-  const [showNotification, setShowNotification] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+function BrandMark() {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+      <rect x="0" y="0" width="40" height="40" fill="#1a1a1a"/>
+      <rect x="2" y="2" width="36" height="36" fill="#FFC928"/>
+      <path d="M20 8 L28 16 L28 32 L24 32 L24 22 L16 22 L16 32 L12 32 L12 16 Z" fill="#1a1a1a"/>
+      <circle cx="20" cy="15" r="2.5" fill="#C8102E"/>
+    </svg>
+  );
+}
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      window.open(`https://www.maryland.gov/pages/search.aspx?q=${encodeURIComponent(searchTerm)}`, '_blank');
+function HeroGraphic() {
+  return (
+    <svg viewBox="0 0 380 380" aria-hidden="true">
+      <defs>
+        <pattern id="stripes" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="4" height="8" fill="#FFC928" opacity="0.5"/>
+        </pattern>
+      </defs>
+      <g stroke="#FAFAF7" strokeWidth="1.5" fill="none" opacity="0.35">
+        <line x1="0" y1="80" x2="380" y2="80"/>
+        <line x1="0" y1="160" x2="380" y2="160"/>
+        <line x1="0" y1="240" x2="380" y2="240"/>
+        <line x1="0" y1="320" x2="380" y2="320"/>
+        <line x1="80" y1="0" x2="80" y2="380"/>
+        <line x1="160" y1="0" x2="160" y2="380"/>
+        <line x1="240" y1="0" x2="240" y2="380"/>
+        <line x1="320" y1="0" x2="320" y2="380"/>
+      </g>
+      <rect x="80" y="80" width="160" height="80" fill="#C8102E"/>
+      <rect x="240" y="80" width="80" height="160" fill="#FFC928"/>
+      <rect x="80" y="160" width="80" height="80" fill="url(#stripes)" stroke="#FFC928" strokeWidth="1"/>
+      <rect x="160" y="240" width="160" height="80" fill="#FAFAF7"/>
+      <rect x="80" y="80" width="240" height="240" fill="none" stroke="#FFC928" strokeWidth="3"/>
+      <g transform="translate(190, 180)">
+        <circle r="44" fill="#1a1a1a" opacity="0.25"/>
+        <path d="M0 -40 C 18 -40, 30 -26, 30 -10 C 30 10, 0 36, 0 36 C 0 36, -30 10, -30 -10 C -30 -26, -18 -40, 0 -40 Z"
+              fill="#C8102E" stroke="#1a1a1a" strokeWidth="3"/>
+        <circle cx="0" cy="-12" r="8" fill="#FAFAF7"/>
+      </g>
+      <text x="12" y="370" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="#FAFAF7" opacity="0.6">
+        PARCEL · PUBLIC INDEX
+      </text>
+      <text x="270" y="20" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="#FFC928">
+        RECORDS
+      </text>
+    </svg>
+  );
+}
+
+interface HeaderProps {
+  onSearch: (address: string) => Promise<any>;
+  minimal?: boolean;
+}
+
+export default function Header({ onSearch, minimal }: HeaderProps) {
+  const [heroQuery, setHeroQuery] = useState('');
+  const [heroLoading, setHeroLoading] = useState(false);
+  const [heroError, setHeroError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleHeroSubmit = async () => {
+    if (!heroQuery.trim()) return;
+    setHeroLoading(true);
+    setHeroError(null);
+    try {
+      await onSearch(heroQuery.trim());
+    } catch (err) {
+      setHeroError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setHeroLoading(false);
     }
   };
 
   return (
     <>
-      {/* Blue notification bar */}
-      {showNotification && (
-        <div className="bg-blue-600 text-white p-4 text-sm">
-        <div className="container mx-auto flex items-center gap-3">
-          <div className="bg-white text-blue-600 p-2 rounded-full flex-shrink-0">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
+      {/* Ribbon */}
+      <div className="ribbon">
+        <div className="ribbon-inner">
+          <div className="ribbon-left">
+            <span className="ribbon-dot" />
+            <span>Public records search · independent property data tool</span>
           </div>
+          <div className="mono" style={{fontSize: 11, letterSpacing: '0.08em', opacity: 0.85}}>
+            PROPLOOKUP
+          </div>
+        </div>
+      </div>
+
+      {/* Site header */}
+      <header className="site">
+        <div className="header-inner">
+          <Link href="/" className="brand">
+            <div className="brand-mark"><BrandMark /></div>
+            <div>
+              <div className="brand-name">PropLookup<span className="dot">.</span></div>
+              <div className="brand-sub">Property Records Search</div>
+            </div>
+          </Link>
+          <div className="header-meta mono">
+            <span className="header-meta-dot" />
+            Public records · Open access
+          </div>
+        </div>
+      </header>
+
+      {/* Hero — hidden on minimal (property detail) pages */}
+      {!minimal && <section className="hero">
+        <div className="hero-bg" />
+        <div className="hero-inner">
           <div>
-            <p className="font-semibold">SDAT's Tax Credit Public Service Counter has moved!</p>
-            <p>In person services have moved from 301 W. Preston St. to SDAT's new location at 123 Market Place, Baltimore, MD 21202</p>
-            <p>Why wait? File online: <a href="#" className="underline">taxcredits.sdat.maryland.gov</a></p>
+            <div className="hero-eyebrow">Public Records · Open Access</div>
+            <h1>
+              Find a property&apos;s <span className="underline-text">assessment</span>,<br/>
+              <span className="accent">ownership &amp; lot details</span> by address.
+            </h1>
+            <p className="hero-lede">
+              Search any parcel in the public records index. Enter a full street address to view assessed value, building characteristics, and valuation history — no account required.
+            </p>
+            <form className="search-card" onSubmit={(e) => { e.preventDefault(); handleHeroSubmit(); }}>
+              <div className="search-card-head">
+                <div className="search-card-title">Property Data Search</div>
+                <div className="search-card-meta">Form · A-01</div>
+              </div>
+              <div className="search-label">
+                <span>Property Address</span>
+                <span><span className="req">*</span> Required</span>
+              </div>
+              <div className="search-row">
+                <div className="search-input-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <input
+                    ref={inputRef}
+                    className="search-input"
+                    placeholder="Enter a street address, e.g. 123 Main St"
+                    value={heroQuery}
+                    onChange={(e) => setHeroQuery(e.target.value)}
+                    aria-label="Property address"
+                    disabled={heroLoading}
+                  />
+                </div>
+                <button type="submit" className="search-submit" disabled={heroLoading || !heroQuery.trim()}>
+                  {heroLoading ? 'Searching\u2026' : 'Search'}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+              {heroError && (
+                <div className="search-error" style={{ marginTop: 14, padding: '10px 14px', background: '#FFF0F0', borderLeft: '4px solid var(--red)', fontSize: 13 }}>
+                  {heroError}
+                </div>
+              )}
+            </form>
           </div>
-          <button 
-            onClick={() => setShowNotification(false)}
-            className="ml-auto hover:opacity-80"
-            aria-label="Close notification"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      )}
-
-      {/* State bar */}
-      <div className="bg-gray-100 border-b border-gray-300 px-4 py-2">
-        <div className="container mx-auto flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600">An official website of the State of Maryland.</span>
-            <button className="text-blue-600 hover:underline flex items-center gap-1">
-              Here's how you know
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="https://www.maryland.gov/pages/jobs.aspx" className="text-gray-600 hover:text-gray-800" target="_blank" rel="noopener noreferrer">Maryland State Jobs</Link>
-            <Link href="#" className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6z" />
-                <path d="M10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-              </svg>
-              Translate
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Main header with logo and search */}
-      <div className="bg-white border-b border-gray-300 px-4 py-3">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <img 
-              src="https://egov.maryland.gov/doit/ewf/widgets/header/v2/img/mdgov-logo-2018-black.png" 
-              alt="Maryland.gov" 
-              className="h-10"
-            />
-          </div>
-          <form onSubmit={handleSearch} className="flex items-center gap-2 max-w-md">
-            <input
-              type="text"
-              placeholder="Enter search term"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Hero section with background image */}
-      <div 
-        className="relative h-64 overflow-hidden"
-        style={{ 
-          backgroundImage: 'url(https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/masthead-bg-fluid-1920x250.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        <div className="absolute inset-0 bg-black opacity-20"></div>
-        <div className="relative container mx-auto h-full flex items-center px-4">
-          <div className="flex items-center gap-4">
-            <div className="rounded shadow-lg">
-              <img 
-                src="https://sdat.dat.maryland.gov/RealProperty/egov/dist/img/logo.png" 
-                alt="Maryland SDAT" 
-                className="h-16"
-              />
-            </div>
-            <div className="text-white">
-              <h1 className="text-sm font-semibold uppercase tracking-wide">MARYLAND</h1>
-              <h2 className="text-3xl font-bold">Department of Assessments and</h2>
-              <h2 className="text-3xl font-bold">Taxation</h2>
-            </div>
-          </div>
-          <div className="ml-auto flex gap-4">
-            <a href="https://www.facebook.com/pages/Maryland-State-Department-of-Assessments-and-Taxation/218721461546884" target="_blank" rel="noopener noreferrer" className="text-white hover:opacity-80">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-            </a>
-            <a href="https://x.com/MarylandDAT" target="_blank" rel="noopener noreferrer" className="text-white hover:opacity-80">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-              </svg>
-            </a>
-            <a href="https://www.linkedin.com/company/mdsdat/" target="_blank" rel="noopener noreferrer" className="text-white hover:opacity-80">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-              </svg>
-            </a>
+          <div className="hero-graphic">
+            <HeroGraphic />
           </div>
         </div>
-      </div>
+      </section>}
     </>
   );
 }
