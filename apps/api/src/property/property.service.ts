@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PropertyDbService } from './property-db.service';
+import { PropertyDbService, SearchResponse, SearchResult } from './property-db.service';
 import { RentCastService } from './rent-cast.service';
 import { DatadogService } from '../monitoring/datadog.service';
 import { AddressParserService } from './address-parser.service';
@@ -130,5 +130,37 @@ export class PropertyService {
 
       throw new InternalServerErrorException('Failed to fetch property data. Please try again.');
     }
+  }
+
+  async searchProperty(query: string, limit = 10): Promise<SearchResponse> {
+    this.datadogService.addTraceTags({
+      'search.query': query,
+      'search.limit': limit,
+      'request.endpoint': '/api/property/search',
+    });
+
+    const response = await this.propertyDbService.searchProperties(query, limit);
+
+    this.datadogService.addTraceTags({
+      'search.results_count': response.results.length,
+      'search.auto_selected': response.autoSelected,
+      'search.top_score': response.results[0]?.score ?? 0,
+    });
+    this.datadogService.incrementMetric('property.search', 1);
+
+    return response;
+  }
+
+  async autocompleteProperty(query: string, limit = 5): Promise<SearchResult[]> {
+    this.datadogService.addTraceTags({
+      'autocomplete.query': query,
+      'request.endpoint': '/api/property/autocomplete',
+    });
+
+    const results = await this.propertyDbService.autocompleteProperties(query, limit);
+
+    this.datadogService.incrementMetric('property.autocomplete', 1);
+
+    return results;
   }
 }

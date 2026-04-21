@@ -21,6 +21,24 @@ export interface PropertyCacheEntry {
   access_count: number;
 }
 
+export interface SearchResult {
+  id: number;
+  address: string;
+  formattedAddress: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  score: number;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  topMatch: any | null;
+  autoSelected: boolean;
+}
+
+const HIGH_CONFIDENCE_THRESHOLD = 5.0;
+
 @Injectable()
 export class PropertyDbService {
   constructor(
@@ -303,6 +321,165 @@ export class PropertyDbService {
     } catch (error) {
       console.error('Error getting cache stats:', error);
       return null;
+    }
+  }
+
+  buildSearchQuery(query: string, isAutocomplete = false): string {
+    const tokens = this.addressParser.tokenizeSearchInput(query);
+    if (tokens.length === 0) return '';
+
+    const clauses: string[] = [];
+
+    tokens.forEach((token, index) => {
+      const type = this.addressParser.classifyToken(token);
+      const isLastToken = index === tokens.length - 1;
+
+      switch (type) {
+        case 'noise':
+          // Skip noise words
+          break;
+        case 'house_number':
+          // House numbers get heavy boost for exact match
+          clauses.push(
+            `paradedb.boost(3.0, paradedb.term('address', ${this.escapeSQL(token)}))`,
+          );
+          break;
+        case 'zip':
+          clauses.push(
+            `paradedb.boost(2.0, paradedb.term('zip_code', ${this.escapeSQL(token)}))`,
+          );
+          break;
+        case 'state':
+          clauses.push(
+            `paradedb.term('state', ${this.escapeSQL(token)})`,
+          );
+          break;
+        case 'word': {
+          if (isLastToken && isAutocomplete) {
+            // Last token in autocomplete mode → prefix match
+            clauses.push(
+              `paradedb.phrase_prefix('address', ARRAY[${this.escapeSQL(token)}])`,
+            );
+          } else {
+            // Expand abbreviations and OR them together
+            const variants = this.addressParser.expandAbbreviations(token);
+            if (variants.length > 1) {
+              const subClauses = variants.flatMap((v) => [
+                `paradedb.fuzzy_term('address', ${this.escapeSQL(v)}, distance => 1)`,
+                `paradedb.fuzzy_term('city', ${this.escapeSQL(v)}, distance => 1)`,
+              ]);
+              clauses.push(
+                `paradedb.boolean(should => ARRAY[${subClauses.join(', ')}])`,
+              );
+            } else {
+              clauses.push(
+                `paradedb.fuzzy_term('address', ${this.escapeSQL(token)}, distance => 1)`,
+              );
+              clauses.push(
+                `paradedb.fuzzy_term('city', ${this.escapeSQL(token)}, distance => 1)`,
+              );
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    if (clauses.length === 0) return '';
+
+    return `paradedb.boolean(should => ARRAY[${clauses.join(', ')}])`;
+  }
+
+  private escapeSQL(value: string): string {
+    // Escape single quotes for SQL string literals
+    return `'${value.replace(/'/g, "''")}'`;
+  }
+
+  async searchProperties(
+    query: string,
+    limit = 10,
+  ): Promise<SearchResponse> {
+    try {
+      const booleanQuery = this.buildSearchQuery(query);
+      if (!booleanQuery) {
+        return { results: [], topMatch: null, autoSelected: false };
+      }
+
+      const searchSQL = sql.raw(`
+        SELECT id, address, formatted_address, city, state, zip_code,
+               paradedb.score(id) AS score
+        FROM properties
+        WHERE id @@@ ${booleanQuery}
+        ORDER BY score DESC
+        LIMIT ${limit}
+      `);
+
+      const result = await this.db.execute(searchSQL);
+      const rows = result.rows as any[];
+
+      const results: SearchResult[] = rows.map((row) => ({
+        id: row.id,
+        address: row.address,
+        formattedAddress: row.formatted_address,
+        city: row.city,
+        state: row.state,
+        zipCode: row.zip_code,
+        score: parseFloat(row.score),
+      }));
+
+      // Hybrid behavior: auto-select if top result has high confidence
+      let topMatch: any | null = null;
+      let autoSelected = false;
+
+      if (results.length > 0 && results[0].score >= HIGH_CONFIDENCE_THRESHOLD) {
+        const fullResult = await this.getPropertyFromDB(results[0].address);
+        if (fullResult) {
+          topMatch = fullResult.data;
+          autoSelected = true;
+        }
+      }
+
+      return { results, topMatch, autoSelected };
+    } catch (error) {
+      console.error('Error searching properties:', error);
+      return { results: [], topMatch: null, autoSelected: false };
+    }
+  }
+
+  async autocompleteProperties(
+    query: string,
+    limit = 5,
+  ): Promise<SearchResult[]> {
+    try {
+      const booleanQuery = this.buildSearchQuery(query, true);
+      if (!booleanQuery) {
+        return [];
+      }
+
+      const searchSQL = sql.raw(`
+        SELECT id, address, formatted_address, city, state, zip_code,
+               paradedb.score(id) AS score
+        FROM properties
+        WHERE id @@@ ${booleanQuery}
+        ORDER BY score DESC
+        LIMIT ${limit}
+      `);
+
+      const result = await this.db.execute(searchSQL);
+      const rows = result.rows as any[];
+
+      return rows.map((row) => ({
+        id: row.id,
+        address: row.address,
+        formattedAddress: row.formatted_address,
+        city: row.city,
+        state: row.state,
+        zipCode: row.zip_code,
+        score: parseFloat(row.score),
+      }));
+    } catch (error) {
+      console.error('Error autocompleting properties:', error);
+      return [];
     }
   }
 

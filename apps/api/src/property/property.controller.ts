@@ -18,6 +18,54 @@ export class PropertyController {
     private readonly datadogService: DatadogService,
   ) {}
 
+  @Get('search')
+  async searchProperty(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query) {
+      throw new BadRequestException('Search query (q) is required');
+    }
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      throw new BadRequestException('Limit must be between 1 and 50');
+    }
+
+    try {
+      return await this.propertyService.searchProperty(query, parsedLimit);
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      console.error('Search error:', error);
+      this.datadogService.trackError(error, { query, source: 'search' });
+      throw new InternalServerErrorException('Search failed');
+    }
+  }
+
+  @Get('autocomplete')
+  async autocompleteProperty(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query) {
+      throw new BadRequestException('Search query (q) is required');
+    }
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 5;
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 20) {
+      throw new BadRequestException('Limit must be between 1 and 20');
+    }
+
+    try {
+      return await this.propertyService.autocompleteProperty(query, parsedLimit);
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      console.error('Autocomplete error:', error);
+      this.datadogService.trackError(error, { query, source: 'autocomplete' });
+      throw new InternalServerErrorException('Autocomplete failed');
+    }
+  }
+
   @Get()
   async getProperty(@Query('address') address: string) {
     console.log('Received request to /api/property');
