@@ -328,7 +328,8 @@ export class PropertyDbService {
     const tokens = this.addressParser.tokenizeSearchInput(query);
     if (tokens.length === 0) return '';
 
-    const clauses: string[] = [];
+    const mustClauses: string[] = [];
+    const shouldClauses: string[] = [];
 
     tokens.forEach((token, index) => {
       const type = this.addressParser.classifyToken(token);
@@ -339,55 +340,59 @@ export class PropertyDbService {
           // Skip noise words
           break;
         case 'house_number':
-          // House numbers get heavy boost for exact match
-          clauses.push(
+          // House numbers must match in address
+          mustClauses.push(
             `paradedb.boost(3.0, paradedb.term('address', ${this.escapeSQL(token)}))`,
           );
           break;
         case 'zip':
-          clauses.push(
+          // ZIP is optional but boosts relevance
+          shouldClauses.push(
             `paradedb.boost(2.0, paradedb.term('zip_code', ${this.escapeSQL(token)}))`,
           );
           break;
         case 'state':
-          clauses.push(
+          // State is optional but boosts relevance
+          shouldClauses.push(
             `paradedb.term('state', ${this.escapeSQL(token)})`,
           );
           break;
         case 'word': {
           if (isLastToken && isAutocomplete) {
-            // Last token in autocomplete mode → prefix match
-            clauses.push(
+            // Last token in autocomplete mode → prefix match (must)
+            mustClauses.push(
               `paradedb.phrase_prefix('address', ARRAY[${this.escapeSQL(token)}])`,
             );
           } else {
-            // Expand abbreviations and OR them together
+            // Word must match in either address or city (with abbreviation variants)
             const variants = this.addressParser.expandAbbreviations(token);
-            if (variants.length > 1) {
-              const subClauses = variants.flatMap((v) => [
-                `paradedb.fuzzy_term('address', ${this.escapeSQL(v)}, distance => 1)`,
-                `paradedb.fuzzy_term('city', ${this.escapeSQL(v)}, distance => 1)`,
-              ]);
-              clauses.push(
-                `paradedb.boolean(should => ARRAY[${subClauses.join(', ')}])`,
-              );
-            } else {
-              clauses.push(
-                `paradedb.fuzzy_term('address', ${this.escapeSQL(token)}, distance => 1)`,
-              );
-              clauses.push(
-                `paradedb.fuzzy_term('city', ${this.escapeSQL(token)}, distance => 1)`,
-              );
-            }
+            const subClauses = variants.flatMap((v) => [
+              `paradedb.fuzzy_term('address', ${this.escapeSQL(v)}, distance => 1)`,
+              `paradedb.fuzzy_term('city', ${this.escapeSQL(v)}, distance => 1)`,
+            ]);
+            mustClauses.push(
+              `paradedb.boolean(should => ARRAY[${subClauses.join(', ')}])`,
+            );
           }
           break;
         }
       }
     });
 
-    if (clauses.length === 0) return '';
+    if (mustClauses.length === 0 && shouldClauses.length === 0) return '';
 
-    return `paradedb.boolean(should => ARRAY[${clauses.join(', ')}])`;
+    // If only should clauses (e.g. just a ZIP or state), use should
+    if (mustClauses.length === 0) {
+      return `paradedb.boolean(should => ARRAY[${shouldClauses.join(', ')}])`;
+    }
+
+    // If only must clauses, use must
+    if (shouldClauses.length === 0) {
+      return `paradedb.boolean(must => ARRAY[${mustClauses.join(', ')}])`;
+    }
+
+    // Both: core tokens must match, extras boost relevance
+    return `paradedb.boolean(must => ARRAY[${mustClauses.join(', ')}], should => ARRAY[${shouldClauses.join(', ')}])`;
   }
 
   private escapeSQL(value: string): string {

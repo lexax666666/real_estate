@@ -73,6 +73,20 @@ const seedAddresses = [
     state: 'MD',
     zipCode: '20902',
   },
+  {
+    address: '8933 amelung st',
+    formattedAddress: '8933 Amelung St, Frederick, MD 21704',
+    city: 'frederick',
+    state: 'MD',
+    zipCode: '21704',
+  },
+  {
+    address: '8933 centerway rd',
+    formattedAddress: '8933 Centerway Rd, Gaithersburg, MD 20879',
+    city: 'gaithersburg',
+    state: 'MD',
+    zipCode: '20879',
+  },
 ];
 
 beforeAll(async () => {
@@ -704,6 +718,62 @@ describe('Autocomplete Integration Tests', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Q. AND (must) logic: house number + street name both required
+  // ────────────────────────────────────────────────────────────────
+  describe('Q. AND (must) logic: house number + street name both required', () => {
+    it('"8933 amelung st" should return amelung st, not other 8933 addresses', async () => {
+      const results = await service.autocompleteProperties('8933 amelung st');
+      expect(results.length).toBeGreaterThan(0);
+      expect(findInResults(results, '8933 amelung st')).toBeDefined();
+      // Should NOT return 8933 centerway rd (wrong street)
+      expect(findInResults(results, '8933 centerway rd')).toBeUndefined();
+    });
+
+    it('"8933 center" should return centerway rd, not amelung st', async () => {
+      const results = await service.autocompleteProperties('8933 center');
+      expect(results.length).toBeGreaterThan(0);
+      expect(findInResults(results, '8933 centerway rd')).toBeDefined();
+      // Should NOT return amelung st
+      expect(findInResults(results, '8933 amelung st')).toBeUndefined();
+    });
+
+    it('"8933 amelung" should match amelung addresses only', async () => {
+      const results = await service.autocompleteProperties('8933 amelung');
+      expect(results.length).toBeGreaterThan(0);
+      for (const r of results) {
+        expect(r.address).toContain('amelung');
+      }
+    });
+
+    it('"123 main" should not return 500 maple ave', async () => {
+      const results = await service.autocompleteProperties('123 main');
+      expect(results.length).toBeGreaterThan(0);
+      expect(findInResults(results, '123 main st')).toBeDefined();
+      expect(findInResults(results, '500 maple ave')).toBeUndefined();
+    });
+
+    it('"500 maple" should not return 123 main st', async () => {
+      const results = await service.autocompleteProperties('500 maple');
+      expect(results.length).toBeGreaterThan(0);
+      expect(findInResults(results, '500 maple ave')).toBeDefined();
+      expect(findInResults(results, '123 main st')).toBeUndefined();
+    });
+
+    it('house number alone should still return all addresses with that number', async () => {
+      const results = await service.autocompleteProperties('8933');
+      expect(results.length).toBeGreaterThanOrEqual(2);
+      expect(findInResults(results, '8933 amelung st')).toBeDefined();
+      expect(findInResults(results, '8933 centerway rd')).toBeDefined();
+    });
+
+    it('street name alone should return all addresses on that street', async () => {
+      const results = await service.autocompleteProperties('amelung');
+      expect(results.length).toBeGreaterThan(0);
+      expect(findInResults(results, '8933 amelung st')).toBeDefined();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // O. Autocomplete vs Search comparison
   // ────────────────────────────────────────────────────────────────
   describe('O. Autocomplete vs Search comparison', () => {
@@ -771,12 +841,28 @@ describe('Autocomplete Integration Tests', () => {
       expect(query.length).toBeGreaterThan(0);
       expect(query).toContain('phrase_prefix');
       expect(query).toContain('paradedb.boost');
+      expect(query).toContain('must');
     });
 
     it('buildSearchQuery without autocomplete should NOT produce phrase_prefix', () => {
       const query = service.buildSearchQuery('9354 we', false);
       expect(query.length).toBeGreaterThan(0);
       expect(query).not.toContain('phrase_prefix');
+    });
+
+    it('buildSearchQuery should use must for house_number + word tokens', () => {
+      const query = service.buildSearchQuery('8933 amelung st', true);
+      expect(query).toContain('must');
+      // house number and street name should be in must clause
+      expect(query).toContain("'8933'");
+      expect(query).toContain("'amelung'");
+    });
+
+    it('buildSearchQuery should use should for state and zip tokens', () => {
+      const query = service.buildSearchQuery('123 main md', true);
+      expect(query).toContain('must');
+      // State should be in should (optional boost), not must
+      expect(query).toContain("'md'");
     });
 
     it('all non-word tokens query should still return results', async () => {

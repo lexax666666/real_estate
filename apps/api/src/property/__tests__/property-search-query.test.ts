@@ -100,9 +100,9 @@ describe('PropertyDbService - buildSearchQuery', () => {
     expect(query).toContain("'westering'");
   });
 
-  it('should wrap everything in boolean(should)', () => {
+  it('should use must for core address tokens', () => {
     const query = service.buildSearchQuery('123 main st');
-    expect(query).toMatch(/^paradedb\.boolean\(should => ARRAY\[/);
+    expect(query).toMatch(/^paradedb\.boolean\(must => ARRAY\[/);
     expect(query).toMatch(/\]\)$/);
   });
 
