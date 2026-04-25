@@ -158,6 +158,12 @@ const MAPPED_HEADERS = new Set([
   'LEGAL1', 'LEGAL2', 'LEGAL3', 'ZONING', 'ACCTID',
   'X', 'Y', 'TRADATE', 'CONSIDR1', 'GRNTNAM1', 'CONVEY1',
   'NFMLNDVL', 'NFMIMPVL', 'NFMTTLVL', 'DESCSUBD',
+  'MAP', 'GRID', 'PARCEL', 'SECTION', 'BLOCK', 'LOT',
+  'OWNADD1', 'OWNADD2', 'OWNCITY', 'OWNSTATE', 'OWNERZIP', 'OWNZIP2',
+  'DESCCNST', 'STRUGRAD', 'DESCGRAD',
+  'DR1LIBER', 'DR1FOLIO', 'GR1LIBR1', 'GR1FOLO1',
+  'MORTGAG1',
+  'HOMQLCOD', 'HOMQLDAT',
 ]);
 
 /** Staging table columns in COPY order (must match COPY statement) */
@@ -170,7 +176,14 @@ const STAGING_COLUMNS = [
   'latitude', 'longitude',
   'sale_date', 'sale_price', 'seller', 'document_type',
   'nfm_land_value', 'nfm_improvement_value', 'nfm_total_value',
-  'subdivision', 'raw_data',
+  'subdivision',
+  'map', 'grid', 'parcel', 'section', 'block', 'lot',
+  'owner_address_1', 'owner_address_2', 'owner_city', 'owner_state', 'owner_zip', 'owner_zip2',
+  'construction_material', 'construction_grade',
+  'deed_liber', 'deed_folio', 'grantor_liber', 'grantor_folio',
+  'mortgage_amount',
+  'homestead_code', 'homestead_date',
+  'raw_data',
 ];
 
 /** Escape a string value for COPY text format */
@@ -270,6 +283,40 @@ export class CsvToCopyTransform extends Transform {
 
       const subdivision = row.DESCSUBD?.trim() || null;
 
+      // Parcel IDs
+      const map = row.MAP?.trim() || null;
+      const grid = row.GRID?.trim() || null;
+      const parcel = row.PARCEL?.trim() || null;
+      const section = row.SECTION?.trim() || null;
+      const block = row.BLOCK?.trim() || null;
+      const lot = row.LOT?.trim() || null;
+
+      // Owner mailing address
+      const ownerAddr1 = row.OWNADD1?.trim() || null;
+      const ownerAddr2 = row.OWNADD2?.trim() || null;
+      const ownerCity = row.OWNCITY?.trim() || null;
+      const ownerState = row.OWNSTATE?.trim() || null;
+      const ownerZip = row.OWNERZIP?.trim() || null;
+      const ownerZip2 = row.OWNZIP2?.trim() || null;
+
+      // Construction
+      const constructionMaterial = row.DESCCNST?.trim() || null;
+      const constructionGrade = row.DESCGRAD?.trim() || row.STRUGRAD?.trim() || null;
+
+      // Deed references
+      const deedLiber = row.DR1LIBER?.trim() || null;
+      const deedFolio = row.DR1FOLIO?.trim() || null;
+      const grantorLiber = row.GR1LIBR1?.trim() || null;
+      const grantorFolio = row.GR1FOLO1?.trim() || null;
+
+      // Mortgage
+      const mortgageRaw = parseInt(row.MORTGAG1 ?? '', 10);
+      const mortgageAmount = !isNaN(mortgageRaw) && mortgageRaw > 0 ? mortgageRaw : null;
+
+      // Homestead
+      const homesteadCode = row.HOMQLCOD?.trim() || null;
+      const homesteadDate = parseTraDate(row.HOMQLDAT);
+
       // raw_data: only unmapped fields
       const rawData: Record<string, string> = {};
       for (const [key, value] of Object.entries(row)) {
@@ -310,6 +357,27 @@ export class CsvToCopyTransform extends Transform {
         copyField(nfmImprovementValue),
         copyField(nfmTotalValue),
         copyField(subdivision),
+        copyField(map),
+        copyField(grid),
+        copyField(parcel),
+        copyField(section),
+        copyField(block),
+        copyField(lot),
+        copyField(ownerAddr1),
+        copyField(ownerAddr2),
+        copyField(ownerCity),
+        copyField(ownerState),
+        copyField(ownerZip),
+        copyField(ownerZip2),
+        copyField(constructionMaterial),
+        copyField(constructionGrade),
+        copyField(deedLiber),
+        copyField(deedFolio),
+        copyField(grantorLiber),
+        copyField(grantorFolio),
+        copyField(mortgageAmount),
+        copyField(homesteadCode),
+        copyField(homesteadDate),
         copyField(rawDataJson),
       ];
 
@@ -509,6 +577,13 @@ async function upsertFromStaging(
         s.sale_date AS last_sale_date,
         s.sale_price AS last_sale_price,
         s.subdivision,
+        s.map, s.grid, s.parcel, s.section, s.block, s.lot,
+        s.owner_address_1, s.owner_address_2, s.owner_city, s.owner_state, s.owner_zip, s.owner_zip2,
+        s.construction_material, s.construction_grade,
+        s.deed_liber, s.deed_folio, s.grantor_liber, s.grantor_folio,
+        s.mortgage_amount,
+        CASE WHEN s.homestead_code = '1' THEN true WHEN s.homestead_code IS NOT NULL THEN false ELSE NULL END AS homestead_status,
+        s.homestead_date,
         '${MD_PARCEL_CSV_SITE_ID}' AS data_source
       FROM staging_parcels s
       ORDER BY s.address, s.row_num DESC
@@ -518,16 +593,26 @@ async function upsertFromStaging(
       owner_names, property_type, year_built, square_footage, lot_size,
       stories, basement, owner_occupied, legal_description,
       zoning, assessor_id, latitude, longitude,
-      last_sale_date, last_sale_price, subdivision, data_source,
-      updated_at
+      last_sale_date, last_sale_price, subdivision,
+      map, grid, parcel, section, block, lot,
+      owner_address_1, owner_address_2, owner_city, owner_state, owner_zip, owner_zip2,
+      construction_material, construction_grade,
+      deed_liber, deed_folio, grantor_liber, grantor_folio,
+      mortgage_amount, homestead_status, homestead_date,
+      data_source, updated_at
     )
     SELECT
       d.address, d.city, d.state, d.zip_code, d.county,
       NULLIF(d.owner_names, ''), d.property_type, d.year_built, d.square_footage, d.lot_size::integer,
       d.stories, d.basement, d.owner_occupied, NULLIF(d.legal_description, ''),
       d.zoning, d.assessor_id, d.latitude, d.longitude,
-      d.last_sale_date, d.last_sale_price, d.subdivision, d.data_source,
-      now()
+      d.last_sale_date, d.last_sale_price, d.subdivision,
+      d.map, d.grid, d.parcel, d.section, d.block, d.lot,
+      d.owner_address_1, d.owner_address_2, d.owner_city, d.owner_state, d.owner_zip, d.owner_zip2,
+      d.construction_material, d.construction_grade,
+      d.deed_liber, d.deed_folio, d.grantor_liber, d.grantor_folio,
+      d.mortgage_amount, d.homestead_status, d.homestead_date,
+      d.data_source, now()
     FROM deduped d
     ON CONFLICT (address) DO UPDATE SET
       city = excluded.city,
@@ -550,6 +635,27 @@ async function upsertFromStaging(
       last_sale_date = excluded.last_sale_date,
       last_sale_price = excluded.last_sale_price,
       subdivision = excluded.subdivision,
+      map = excluded.map,
+      grid = excluded.grid,
+      parcel = excluded.parcel,
+      section = excluded.section,
+      block = excluded.block,
+      lot = excluded.lot,
+      owner_address_1 = excluded.owner_address_1,
+      owner_address_2 = excluded.owner_address_2,
+      owner_city = excluded.owner_city,
+      owner_state = excluded.owner_state,
+      owner_zip = excluded.owner_zip,
+      owner_zip2 = excluded.owner_zip2,
+      construction_material = excluded.construction_material,
+      construction_grade = excluded.construction_grade,
+      deed_liber = excluded.deed_liber,
+      deed_folio = excluded.deed_folio,
+      grantor_liber = excluded.grantor_liber,
+      grantor_folio = excluded.grantor_folio,
+      mortgage_amount = excluded.mortgage_amount,
+      homestead_status = excluded.homestead_status,
+      homestead_date = excluded.homestead_date,
       data_source = excluded.data_source,
       updated_at = excluded.updated_at
     WHERE properties.data_source IS NULL

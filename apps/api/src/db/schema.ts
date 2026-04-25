@@ -45,6 +45,33 @@ export const properties = pgTable(
     zoning: varchar('zoning'),
     assessorId: varchar('assessor_id'),
     legalDescription: text('legal_description'),
+    // Parcel identifiers
+    map: varchar('map', { length: 5 }),
+    grid: varchar('grid', { length: 5 }),
+    parcel: varchar('parcel', { length: 5 }),
+    section: varchar('section', { length: 5 }),
+    block: varchar('block', { length: 5 }),
+    lot: varchar('lot', { length: 5 }),
+    // Owner mailing address
+    ownerAddress1: varchar('owner_address_1'),
+    ownerAddress2: varchar('owner_address_2'),
+    ownerCity: varchar('owner_city'),
+    ownerState: varchar('owner_state', { length: 2 }),
+    ownerZip: varchar('owner_zip', { length: 5 }),
+    ownerZip2: varchar('owner_zip2', { length: 4 }),
+    // Construction
+    constructionMaterial: varchar('construction_material'),
+    constructionGrade: varchar('construction_grade'),
+    // Deed references
+    deedLiber: varchar('deed_liber'),
+    deedFolio: varchar('deed_folio'),
+    grantorLiber: varchar('grantor_liber'),
+    grantorFolio: varchar('grantor_folio'),
+    // Mortgage
+    mortgageAmount: integer('mortgage_amount'),
+    // Homestead
+    homesteadStatus: boolean('homestead_status'),
+    homesteadDate: varchar('homestead_date', { length: 10 }),
     features: jsonb('features'),
     rawResponse: jsonb('raw_response'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -179,6 +206,33 @@ export const stagingParcels = pgTable('staging_parcels', {
   nfmImprovementValue: numeric('nfm_improvement_value', { precision: 12, scale: 2 }),
   nfmTotalValue: numeric('nfm_total_value', { precision: 12, scale: 2 }),
   subdivision: varchar('subdivision'),
+  // Parcel identifiers
+  map: varchar('map', { length: 5 }),
+  grid: varchar('grid', { length: 5 }),
+  parcel: varchar('parcel', { length: 5 }),
+  section: varchar('section', { length: 5 }),
+  block: varchar('block', { length: 5 }),
+  lot: varchar('lot', { length: 5 }),
+  // Owner mailing address
+  ownerAddress1: varchar('owner_address_1'),
+  ownerAddress2: varchar('owner_address_2'),
+  ownerCity: varchar('owner_city'),
+  ownerState: varchar('owner_state', { length: 2 }),
+  ownerZip: varchar('owner_zip', { length: 5 }),
+  ownerZip2: varchar('owner_zip2', { length: 4 }),
+  // Construction
+  constructionMaterial: varchar('construction_material'),
+  constructionGrade: varchar('construction_grade'),
+  // Deed references
+  deedLiber: varchar('deed_liber'),
+  deedFolio: varchar('deed_folio'),
+  grantorLiber: varchar('grantor_liber'),
+  grantorFolio: varchar('grantor_folio'),
+  // Mortgage
+  mortgageAmount: integer('mortgage_amount'),
+  // Homestead
+  homesteadCode: varchar('homestead_code', { length: 1 }),
+  homesteadDate: varchar('homestead_date', { length: 10 }),
   rawData: jsonb('raw_data'),
 });
 

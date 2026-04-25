@@ -43,6 +43,34 @@ const amelungRow: CsvRow = {
   NFMIMPVL: '385300',
   NFMTTLVL: '555300',
   DESCSUBD: 'Villages of Urbana',
+  // Parcel IDs
+  MAP: '0096',
+  GRID: '0009',
+  PARCEL: '0249',
+  SECTION: 'M1B',
+  BLOCK: '',
+  LOT: '1287',
+  // Owner mailing address
+  OWNADD1: '8933 AMELUNG ST',
+  OWNADD2: '',
+  OWNCITY: 'FREDERICK',
+  OWNSTATE: 'MD',
+  OWNERZIP: '21704',
+  OWNZIP2: '7918',
+  // Construction
+  DESCCNST: 'CNST Brick',
+  STRUGRAD: '5',
+  DESCGRAD: 'Codes range from lowest to highest quality 1-9',
+  // Deed references
+  DR1LIBER: '11593',
+  DR1FOLIO: '0095',
+  GR1LIBR1: '06953',
+  GR1FOLO1: '0083',
+  // Mortgage
+  MORTGAG1: '',
+  // Homestead
+  HOMQLCOD: '1',
+  HOMQLDAT: '20170918',
 };
 
 /** Helper to push a row through CsvToCopyTransform and get the output line */
@@ -74,8 +102,8 @@ describe('CsvToCopyTransform', () => {
     expect(output).not.toBeNull();
 
     const fields = parseCopyLine(output!);
-    // Should have 30 fields (matching STAGING_COLUMNS count)
-    expect(fields).toHaveLength(30);
+    // Should have 51 fields (matching STAGING_COLUMNS count: 30 original + 21 new)
+    expect(fields).toHaveLength(51);
 
     // address (lowercased)
     expect(fields[0]).toBe('8933 amelung st');
@@ -264,11 +292,97 @@ describe('CsvToCopyTransform', () => {
     expect(fields[7]).toBe('\\N');
   });
 
+  it('includes parcel IDs at correct indices', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // map(29), grid(30), parcel(31), section(32), block(33), lot(34)
+    expect(fields[29]).toBe('0096');
+    expect(fields[30]).toBe('0009');
+    expect(fields[31]).toBe('0249');
+    expect(fields[32]).toBe('M1B');
+    expect(fields[33]).toBe('\\N'); // empty BLOCK → null
+    expect(fields[34]).toBe('1287');
+  });
+
+  it('includes owner mailing address at correct indices', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // owner_address_1(35), owner_address_2(36), owner_city(37),
+    // owner_state(38), owner_zip(39), owner_zip2(40)
+    expect(fields[35]).toBe('8933 AMELUNG ST');
+    expect(fields[36]).toBe('\\N'); // empty → null
+    expect(fields[37]).toBe('FREDERICK');
+    expect(fields[38]).toBe('MD');
+    expect(fields[39]).toBe('21704');
+    expect(fields[40]).toBe('7918');
+  });
+
+  it('includes construction material and grade', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // construction_material(41), construction_grade(42)
+    expect(fields[41]).toBe('CNST Brick');
+    expect(fields[42]).toBe('Codes range from lowest to highest quality 1-9');
+  });
+
+  it('falls back construction grade to STRUGRAD when DESCGRAD empty', async () => {
+    const row: CsvRow = {
+      ...amelungRow,
+      DESCGRAD: '',
+      STRUGRAD: '5',
+    };
+    const output = await transformRow(row);
+    const fields = parseCopyLine(output!);
+    expect(fields[42]).toBe('5');
+  });
+
+  it('includes deed references at correct indices', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // deed_liber(43), deed_folio(44), grantor_liber(45), grantor_folio(46)
+    expect(fields[43]).toBe('11593');
+    expect(fields[44]).toBe('0095');
+    expect(fields[45]).toBe('06953');
+    expect(fields[46]).toBe('0083');
+  });
+
+  it('includes mortgage amount (null when empty)', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // mortgage_amount(47) — empty in fixture → null
+    expect(fields[47]).toBe('\\N');
+  });
+
+  it('parses mortgage amount when present', async () => {
+    const row: CsvRow = { ...amelungRow, MORTGAG1: '266400' };
+    const output = await transformRow(row);
+    const fields = parseCopyLine(output!);
+    expect(fields[47]).toBe('266400');
+  });
+
+  it('includes homestead code and parsed date', async () => {
+    const output = await transformRow(amelungRow);
+    const fields = parseCopyLine(output!);
+    // homestead_code(48), homestead_date(49)
+    expect(fields[48]).toBe('1');
+    expect(fields[49]).toBe('2017-09-18');
+  });
+
+  it('outputs \\N for all new fields when empty', async () => {
+    const row = createMinimalRow();
+    const output = await transformRow(row);
+    const fields = parseCopyLine(output!);
+    // New fields at indices 29-49 should all be \N
+    for (let i = 29; i <= 49; i++) {
+      expect(fields[i]).toBe('\\N');
+    }
+  });
+
   it('stores only unmapped fields in raw_data', async () => {
     const output = await transformRow(amelungRow);
     const fields = parseCopyLine(output!);
-    // raw_data is the last field (field 29)
-    const rawData = JSON.parse(fields[29]);
+    // raw_data is the last field at index 50 (51 total fields)
+    const rawData = JSON.parse(fields[50]);
     // OBJECTID and RESITYP should be in raw_data (not mapped)
     expect(rawData.OBJECTID).toBe('1263827');
     expect(rawData.RESITYP).toBe('TH');
@@ -276,6 +390,13 @@ describe('CsvToCopyTransform', () => {
     expect(rawData.ADDRESS).toBeUndefined();
     expect(rawData.CITY).toBeUndefined();
     expect(rawData.ZIPCODE).toBeUndefined();
+    // Newly mapped fields should NOT be in raw_data either
+    expect(rawData.MAP).toBeUndefined();
+    expect(rawData.GRID).toBeUndefined();
+    expect(rawData.OWNADD1).toBeUndefined();
+    expect(rawData.DESCCNST).toBeUndefined();
+    expect(rawData.DR1LIBER).toBeUndefined();
+    expect(rawData.HOMQLCOD).toBeUndefined();
   });
 
   it('escapes tabs and newlines in values', async () => {
@@ -589,5 +710,28 @@ function createMinimalRow(): CsvRow {
     NFMIMPVL: '0',
     NFMTTLVL: '0',
     DESCSUBD: '',
+    // New fields
+    MAP: '',
+    GRID: '',
+    PARCEL: '',
+    SECTION: '',
+    BLOCK: '',
+    LOT: '',
+    OWNADD1: '',
+    OWNADD2: '',
+    OWNCITY: '',
+    OWNSTATE: '',
+    OWNERZIP: '',
+    OWNZIP2: '',
+    DESCCNST: '',
+    STRUGRAD: '',
+    DESCGRAD: '',
+    DR1LIBER: '',
+    DR1FOLIO: '',
+    GR1LIBR1: '',
+    GR1FOLO1: '',
+    MORTGAG1: '',
+    HOMQLCOD: '',
+    HOMQLDAT: '',
   };
 }
