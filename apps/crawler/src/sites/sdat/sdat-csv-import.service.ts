@@ -557,11 +557,11 @@ async function upsertFromStaging(
         ) AS lot_size,
         COALESCE(
           CASE WHEN s.bldg_story > 0 THEN ROUND(s.bldg_story) END,
-          (regexp_match(s.desc_style, '(\d+(?:\.\d+)?)\s*Stor(?:y|ies)', 'i'))[1]::numeric
+          (regexp_match(s.desc_style, '(\\d+(?:\\.\\d+)?)\\s*Stor(?:y|ies)', 'i'))[1]::numeric
         )::integer AS stories,
         CASE
-          WHEN s.desc_style ~* 'with\s+basement' THEN 'Yes'
-          WHEN s.desc_style ~* 'no\s+basement' THEN 'No'
+          WHEN s.desc_style ~* 'with\\s+basement' THEN 'Yes'
+          WHEN s.desc_style ~* 'no\\s+basement' THEN 'No'
           ELSE NULL
         END AS basement,
         CASE
@@ -679,26 +679,26 @@ async function upsertFromStaging(
     return { inserted, updated, skipped };
   }
 
-  // Step C: Upsert site_crawl_data
-logger('  Step C: Upserting site_crawl_data...');
-  const crawlResult = await client.query(`
-    WITH deduped AS (
-      SELECT DISTINCT ON (s.address)
-        s.address, s.raw_data
-      FROM staging_parcels s
-      ORDER BY s.address, s.row_num DESC
-    )
-    INSERT INTO site_crawl_data (property_id, site_id, raw_data, updated_at)
-    SELECT p.id, '${MD_PARCEL_CSV_SITE_ID}', d.raw_data, now()
-    FROM deduped d
-    JOIN properties p ON p.address = d.address
-    WHERE p.data_source IS NULL
-       OR p.data_source NOT IN ('md-sdat', 'merged')
-    ON CONFLICT (property_id, site_id) DO UPDATE SET
-      raw_data = excluded.raw_data,
-      updated_at = excluded.updated_at
-  `);
-  logger(`    site_crawl_data: ${crawlResult.rowCount} rows`);
+  // Step C: Upsert site_crawl_data (commented out for faster import)
+  // logger('  Step C: Upserting site_crawl_data...');
+  // const crawlResult = await client.query(`
+  //   WITH deduped AS (
+  //     SELECT DISTINCT ON (s.address)
+  //       s.address, s.raw_data
+  //     FROM staging_parcels s
+  //     ORDER BY s.address, s.row_num DESC
+  //   )
+  //   INSERT INTO site_crawl_data (property_id, site_id, raw_data, updated_at)
+  //   SELECT p.id, '${MD_PARCEL_CSV_SITE_ID}', d.raw_data, now()
+  //   FROM deduped d
+  //   JOIN properties p ON p.address = d.address
+  //   WHERE p.data_source IS NULL
+  //      OR p.data_source NOT IN ('md-sdat', 'merged')
+  //   ON CONFLICT (property_id, site_id) DO UPDATE SET
+  //     raw_data = excluded.raw_data,
+  //     updated_at = excluded.updated_at
+  // `);
+  // logger(`    site_crawl_data: ${crawlResult.rowCount} rows`);
 
   // Step D: Upsert tax_assessments (where nfm_total_value > 0)
   logger('  Step D: Upserting tax_assessments...');

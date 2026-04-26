@@ -78,7 +78,7 @@ export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasP
                 </div>
                 <div>
                   <div className="text-gray-600">Deed Reference:</div>
-                  <div>{data.lastSaleDate ? formatDate(data.lastSaleDate) : 'N/A'}</div>
+                  <div>{data.deedLiber && data.deedFolio ? `/${data.deedLiber}/ ${data.deedFolio}` : 'N/A'}</div>
                 </div>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function PropertyInfo({ data, onNewSearch, onPreviousSearch, hasP
             <div className="text-gray-600">Subdivision:</div>
             <div>{data.subdivision || 'N/A'}</div>
             <div className="text-gray-600 mt-2">Section:</div>
-            <div>-</div>
+            <div>{data.section || '-'}</div>
           </div>
         </div>
 
