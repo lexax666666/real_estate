@@ -1,0 +1,58 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Run API tests with coverage
+      - name: API tests with coverage
+        working-directory: apps/api
+        run: npx vitest run --coverage
+        continue-on-error: true
+
+      # Run Crawler tests with coverage
+      - name: Crawler tests with coverage
+        working-directory: apps/crawler
+        run: npx vitest run --coverage
+        continue-on-error: true
+
+      # Post API coverage as PR comment
+      - name: API Coverage Report
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: API Coverage
+          json-summary-path: apps/api/coverage/coverage-summary.json
+          json-final-path: apps/api/coverage/coverage-final.json
+          file-coverage-mode: changes
+
+      # Post Crawler coverage as PR comment
+      - name: Crawler Coverage Report
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Crawler Coverage
+          json-summary-path: apps/crawler/coverage/coverage-summary.json
+          json-final-path: apps/crawler/coverage/coverage-final.json
+          file-coverage-mode: changes
