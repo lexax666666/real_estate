@@ -13,6 +13,9 @@ concurrency:
   group: pr-${{ github.event.number }}
   cancel-in-progress: true
 
+permissions:
+  pull-requests: write
+
 jobs:
   preview:
     runs-on: ubuntu-latest
@@ -103,6 +106,26 @@ jobs:
           curl --fail --retry 5 --retry-delay 10 \
             https://property-search-web-pr-${{ github.event.number }}.fly.dev
 
+      # --- Comment preview URLs on PR ---
+      - name: Comment preview URLs on PR
+        if: github.event.action != 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-urls
+          message: |
+            ## Preview Environment
+
+            | Service | URL |
+            |---------|-----|
+            | Web | https://property-search-web-pr-${{ github.event.number }}.fly.dev |
+            | API | https://property-search-api-pr-${{ github.event.number }}.fly.dev |
+            | API Health | https://property-search-api-pr-${{ github.event.number }}.fly.dev/health |
+
+            **Database:** Neon branch `pr-${{ github.event.number }}`
+
+            ---
+            _Updated on deploy of ${{ github.sha }}_
+
       # --- Cleanup Neon branch on PR close ---
       - name: Delete Neon branch
         if: github.event.action == 'closed'
@@ -111,3 +134,16 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: pr-${{ github.event.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Comment preview teardown on PR
+        if: github.event.action == 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-urls
+          message: |
+            ## Preview Environment
+
+            Preview environment has been torn down.
+
+            - Fly.io apps deleted
+            - Neon database branch `pr-${{ github.event.number }}` deleted
