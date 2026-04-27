@@ -88,20 +88,6 @@ export class PropertyDbService {
         });
       }
 
-      // Final fallback: try raw input (lowercased) in case the parser dropped words
-      // e.g., parse-address drops "sun" from "9354 westering sun"
-      const rawAddress = address.trim().toLowerCase();
-      if (!result && rawAddress !== streetAddress) {
-        result = await this.db.query.properties.findFirst({
-          where: eq(properties.address, rawAddress),
-          with: {
-            taxAssessments: true,
-            propertyTaxes: true,
-            saleHistory: true,
-          },
-        });
-      }
-
       if (!result) {
         return null;
       }
