@@ -25,17 +25,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Run API tests with coverage
+      # Run API unit tests with coverage (exclude integration/e2e that need Docker/browsers)
       - name: API tests with coverage
         working-directory: apps/api
-        run: npx vitest run --coverage
-        continue-on-error: true
+        run: npx vitest run --coverage --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'
 
-      # Run Crawler tests with coverage
+      # Run Crawler unit tests with coverage (exclude e2e that need browsers)
       - name: Crawler tests with coverage
         working-directory: apps/crawler
-        run: npx vitest run --coverage
-        continue-on-error: true
+        run: npx vitest run --coverage --exclude='**/*.e2e.test.ts'
 
       # Post API coverage as PR comment
       - name: API Coverage Report
