@@ -70,6 +70,8 @@ describe('RentCastService', () => {
       expect(result.lotSize).toBe(5000);
       expect(result.bedrooms).toBe(4);
       expect(result.bathrooms).toBe(2.5);
+      expect(result.fullBathrooms).toBe(2);
+      expect(result.halfBathrooms).toBe(1);
       expect(result.stories).toBe(2);
       expect(result.basement).toBe(true);
       expect(result.garage).toBe(2);
@@ -257,7 +259,7 @@ describe('RentCastService', () => {
       expect(result.propertyType).toBe('Residential');
     });
 
-    it('should override owner name for the specific property id', () => {
+    it('should not override owner name for any property id', () => {
       const property = {
         id: '9354-Westering-Sun,-Columbia,-MD-21045',
         owner: { names: ['Original Owner'] },
@@ -265,7 +267,28 @@ describe('RentCastService', () => {
 
       const result = service.transformRentCastResponse(property);
 
-      expect(result.ownerName).toBe('Janelle Lynn Johnson, Liping Chen');
+      expect(result.ownerName).toBe('Original Owner');
+    });
+
+    it('should compute fullBathrooms and halfBathrooms from total', () => {
+      const property = { bathrooms: 3.5 };
+      const result = service.transformRentCastResponse(property);
+      expect(result.fullBathrooms).toBe(3);
+      expect(result.halfBathrooms).toBe(1);
+    });
+
+    it('should return 0 halfBathrooms for whole number', () => {
+      const property = { bathrooms: 2 };
+      const result = service.transformRentCastResponse(property);
+      expect(result.fullBathrooms).toBe(2);
+      expect(result.halfBathrooms).toBe(0);
+    });
+
+    it('should handle null bathrooms', () => {
+      const property = { bathrooms: null };
+      const result = service.transformRentCastResponse(property);
+      expect(result.fullBathrooms).toBe(0);
+      expect(result.halfBathrooms).toBe(0);
     });
   });
 

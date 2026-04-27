@@ -60,11 +60,12 @@ export class RentCastService {
       : null;
     const latestTax = latestTaxYear ? property.propertyTaxes[latestTaxYear] : null;
 
-    // Check if this is the specific property and modify owner name
-    let ownerName = property.owner?.names?.join(', ') || 'N/A';
-    if (property.id === '9354-Westering-Sun,-Columbia,-MD-21045') {
-      ownerName = 'Janelle Lynn Johnson, Liping Chen';
-    }
+    const ownerName = property.owner?.names?.join(', ') || 'N/A';
+
+    // Split total bathrooms into full + half (e.g., 2.5 → full: 2, half: 1)
+    const totalBathrooms = property.bathrooms ?? 0;
+    const fullBathrooms = Math.floor(totalBathrooms);
+    const halfBathrooms = totalBathrooms % 1 >= 0.5 ? 1 : 0;
 
     return {
       address: property.addressLine1 || property.formattedAddress,
@@ -78,6 +79,8 @@ export class RentCastService {
       lotSize: property.lotSize,
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
+      fullBathrooms,
+      halfBathrooms,
       stories: property.features?.floorCount,
       basement: property.features?.basement,
       garage: property.features?.garageSpaces,
